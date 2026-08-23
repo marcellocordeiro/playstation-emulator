@@ -1,0 +1,16 @@
+[package]
+name = "playstation-core"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+
+[dependencies]
+itertools = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+md-5 = { workspace = true }
+hex = { workspace = true }

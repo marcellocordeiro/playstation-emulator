@@ -1,0 +1,16 @@
+[package]
+name = "playstation-headless"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+
+[dependencies]
+clap = { workspace = true }
+playstation-core = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

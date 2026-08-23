@@ -1,0 +1,67 @@
+[workspace]
+resolver = "3"
+members = [
+  "apps/eframe",
+  "apps/headless",
+  "core/playstation-core",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/marcellocordeiro/playstation-emulator"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = true
+
+[workspace.lints.clippy]
+# Groups
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# nursery
+missing_const_for_fn = "allow" # Noisy
+option_if_let_else = "allow" # Less readable
+
+# pedantic
+cast_lossless = "allow" # Noisy and verbose
+cast_possible_truncation = "allow" # Intentional, but can be mitigated
+cast_possible_wrap = "allow" # Used intentionally and extensively
+collapsible_if = "allow" # Not always desirable
+match_same_arms = "allow" # Intentional for readability
+missing_errors_doc = "allow" # Can be addressed by adding documentation
+missing_panics_doc = "allow" # Can be addressed by adding documentation
+module_name_repetitions = "allow" # Annoying
+similar_names = "allow" # Nope
+too_many_lines = "allow"
+unreadable_literal = "allow" # May not improve readability
+unused_self = "allow" # Some opcodes don't need to do anything, but keep them there for now
+verbose_bit_mask = "allow" # Less readable
+
+# style
+enum_variant_names = "allow" # Annoying
+new_without_default = "allow"
+
+[workspace.dependencies]
+clap = { version = "4.6.6", features = ["derive"] }
+cpal = { version = "0.18.2" }
+crossbeam = { version = "0.8.4" }
+eframe = { version = "0.36.1", default-features = false }
+egui = { version = "0.36.1", default-features = false }
+itertools = "0.15.0"
+md-5 = "0.11.0"
+hex = "0.4.3"
+playstation-core = { path = "./core/playstation-core" }
+rfd = "0.17.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.20"
+tokio = "1.53.1"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
