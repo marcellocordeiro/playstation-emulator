@@ -160,10 +160,7 @@ impl Cpu {
                 panic!("Invalid/unimplemented instruction: {instruction:?}",)
             }
 
-            0x05 => {
-                // BNE
-                panic!("Invalid/unimplemented instruction: {instruction:?}",)
-            }
+            0x05 => self.bne(instruction),
 
             0x06 => {
                 // BLEZ
@@ -175,10 +172,7 @@ impl Cpu {
                 panic!("Invalid/unimplemented instruction: {instruction:?}",)
             }
 
-            0x08 => {
-                // ADDI
-                panic!("Invalid/unimplemented instruction: {instruction:?}",)
-            }
+            0x08 => self.addi(instruction),
 
             0x09 => self.addiu(instruction),
 
@@ -206,10 +200,7 @@ impl Cpu {
 
             0x0F => self.lui(instruction),
 
-            0x10 => {
-                // COP0
-                panic!("Invalid/unimplemented instruction: {instruction:?}",)
-            }
+            0x10 => self.cop0(instruction),
 
             0x11 => {
                 // COP1
@@ -236,10 +227,7 @@ impl Cpu {
                 panic!("Invalid/unimplemented instruction: {instruction:?}",)
             }
 
-            0x23 => {
-                // LW
-                panic!("Invalid/unimplemented instruction: {instruction:?}",)
-            }
+            0x23 => self.lw(instruction),
 
             0x24 => {
                 // LBU
@@ -338,6 +326,14 @@ impl Cpu {
         self.regs.set_r(rt, value);
     }
 
+    fn cop0(&mut self, instruction: Instruction) {
+        match instruction.cop_opcode() {
+            0b00100 => self.mtc0(instruction),
+
+            _ => unimplemented!("Unimplemented COP0 instruction: {instruction:?}"),
+        }
+    }
+
     fn ori(&mut self, instruction: Instruction) {
         let imm = instruction.imm();
         let rt = instruction.rt();
@@ -347,8 +343,32 @@ impl Cpu {
         self.regs.set_r(rt, value);
     }
 
+    /// Load Word
+    fn lw(&mut self, instruction: Instruction) {
+        if (self.sr & 0x0001_0000) != 0 {
+            // Cache is isolated, ignore writes
+            info!("Ignoring store while cache is isolated");
+            return;
+        }
+
+        let imm = instruction.imm_sign_extended();
+        let rt = instruction.rt();
+        let rs = instruction.rs();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+        let value = self.load_dword(address);
+
+        self.regs.set_r(rt, value);
+    }
+
     /// Store Word
     fn sw(&mut self, instruction: Instruction) {
+        if (self.sr & 0x0001_0000) != 0 {
+            // Cache is isolated, ignore writes
+            info!("Ignoring store while cache is isolated");
+            return;
+        }
+
         let imm = instruction.imm_sign_extended();
         let rt = instruction.rt();
         let rs = instruction.rs();
@@ -359,11 +379,25 @@ impl Cpu {
         self.memory.store_dword(address, value);
     }
 
+    /// Add Immediate
+    fn addi(&mut self, instruction: Instruction) {
+        let imm = instruction.imm_sign_extended() as i32;
+        let rt = instruction.rt();
+        let rs = instruction.rs();
+
+        let value = match (self.regs.get_r(rs) as i32).checked_add(imm) {
+            Some(value) => value as u32,
+            None => unimplemented!("Unsupported ADDI overflow"),
+        };
+
+        self.regs.set_r(rt, value);
+    }
+
     /// Add Immediate Unsigned
     fn addiu(&mut self, instruction: Instruction) {
         let imm = instruction.imm_sign_extended();
         let rt = instruction.rt();
-        let rs = instruction.rd();
+        let rs = instruction.rs();
 
         let value = self.regs.get_r(rs).wrapping_add(imm);
 
@@ -374,7 +408,18 @@ impl Cpu {
     fn j(&mut self, instruction: Instruction) {
         let imm = instruction.imm_jump();
 
-        self.regs.pc = (self.regs.pc & 0xF000_0000) | (imm << 2);
+        self.regs.pc = (self.regs.pc & 0xF000_0000) | imm;
+    }
+
+    /// Branch if Not Equal
+    fn bne(&mut self, instruction: Instruction) {
+        let offset = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        if self.regs.get_r(rs) != self.regs.get_r(rt) {
+            self.branch(offset);
+        }
     }
 }
 
@@ -401,5 +446,22 @@ impl Cpu {
         let value = self.regs.get_r(rs) | self.regs.get_r(rt);
 
         self.regs.set_r(rd, value);
+    }
+}
+
+impl Cpu {
+    // COP
+
+    fn mtc0(&mut self, instruction: Instruction) {
+        let cpu_r = instruction.rt();
+        let cop_r = instruction.rd().0;
+
+        let value = self.regs.get_r(cpu_r);
+
+        match cop_r {
+            12 => self.sr = value,
+
+            nn => unimplemented!("Unimplemented COP0 register: {nn}"),
+        }
     }
 }

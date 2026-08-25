@@ -17,6 +17,10 @@ impl Instruction {
         self.0 & 0x3F
     }
 
+    pub fn cop_opcode(self) -> u32 {
+        self.rs().0
+    }
+
     /// Immediate value
     ///
     /// Bits 15...0 (16 bits)
@@ -34,7 +38,8 @@ impl Instruction {
     }
 
     pub fn imm_jump(self) -> u32 {
-        self.0 & 0x03FF_FFFF
+        // 1:0 Assumed to be 0 due to 32 bits alignment
+        (self.0 & 0x03FF_FFFF) << 2
     }
 
     /// Shift immediate value (imm5)
@@ -46,7 +51,7 @@ impl Instruction {
 
     /// Register index s
     ///
-    /// Bits 25...11 (5 bits)
+    /// Bits 25...21 (5 bits)
     pub fn rs(self) -> RegisterIndex {
         RegisterIndex((self.0 >> 21) & 0x1F)
     }
@@ -62,7 +67,7 @@ impl Instruction {
     ///
     /// Bits 15...11 (5 bits)
     pub fn rd(self) -> RegisterIndex {
-        RegisterIndex((self.0 >> 1) & 0x1F)
+        RegisterIndex((self.0 >> 11) & 0x1F)
     }
 }
 

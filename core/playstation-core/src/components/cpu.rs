@@ -8,6 +8,9 @@ pub struct Cpu {
     memory: Memory,
 
     next_instruction: Instruction,
+
+    /// COP0 register 12: Status Register
+    sr: u32,
 }
 
 impl Cpu {
@@ -19,6 +22,7 @@ impl Cpu {
             regs,
             memory,
             next_instruction: Instruction(0x00),
+            sr: 0,
         }
     }
 
@@ -36,6 +40,13 @@ impl Cpu {
 
     fn load_dword(&self, address: u32) -> u32 {
         self.memory.load_dword(address)
+    }
+
+    fn branch(&mut self, offset: u32) {
+        // PC is always aligned to 32 bits
+        let offset = offset << 2;
+
+        self.regs.pc = self.regs.pc.wrapping_add(offset).wrapping_sub(4); // run_next_instruction eagerly advances PC
     }
 }
 

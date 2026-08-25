@@ -12,7 +12,7 @@ pub struct PlayStation {
 
 impl PlayStation {
     #[must_use]
-    pub fn new(bios_data: BiosData) -> Self {
+    pub fn new(bios_data: Box<BiosData>) -> Self {
         let bios = Bios::new(bios_data).unwrap();
         let memory = Memory::new(bios);
 

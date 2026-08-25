@@ -8,13 +8,13 @@ pub const BIOS_EXTENSIONS: [&str; 1] = ["bin"];
 pub const BIOS_EXTENSIONS_DESCRIPTION: &str = "PlayStation BIOS";
 
 pub struct Bios {
-    data: BiosData,
+    data: Box<BiosData>,
     metadata: &'static Metadata,
 }
 
 impl Bios {
-    pub fn new(data: BiosData) -> Result<Self, &'static str> {
-        let hash = hex::encode(md5::Md5::digest(&data));
+    pub fn new(data: Box<BiosData>) -> Result<Self, &'static str> {
+        let hash = hex::encode(md5::Md5::digest(data.as_ref()));
 
         info!("BIOS md5: {hash}");
 
@@ -28,7 +28,7 @@ impl Bios {
     pub fn load_dword(&self, offset: u32) -> u32 {
         let offset = offset as usize;
 
-        let load = |i: usize| self.data[i] as u32;
+        let load = |i| self.data[i] as u32;
 
         let b0 = load(offset + 0);
         let b1 = load(offset + 1);
@@ -46,7 +46,7 @@ pub struct Metadata {
 
 impl Metadata {
     const fn new(name: &'static str, md5: &'static str) -> Self {
-        Metadata { name, md5 }
+        Self { name, md5 }
     }
 }
 
