@@ -1,9 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
-  "apps/eframe",
+  # "apps/eframe",
   "apps/headless",
   "core/playstation-core",
+  "core/sst-r3000",
 ]
 
 [workspace.package]

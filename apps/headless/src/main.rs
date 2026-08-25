@@ -26,7 +26,7 @@ fn main() {
         })
         .unwrap();
 
-    let mut ps = PlayStation::new(*bios);
+    let mut ps = PlayStation::new(bios);
 
     loop {
         ps.step();
