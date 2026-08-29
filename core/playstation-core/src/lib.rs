@@ -2,12 +2,13 @@ use crate::components::{
     cpu::Cpu,
     memory::{
         Memory,
+        MemoryInterface as _,
         bios::{Bios, BiosData},
     },
 };
 
 pub struct PlayStation {
-    pub cpu: Cpu,
+    pub cpu: Cpu<Memory>,
 }
 
 impl PlayStation {

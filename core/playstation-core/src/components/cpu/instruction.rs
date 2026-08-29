@@ -1,5 +1,7 @@
 #[derive(Clone, Copy)]
 pub struct Instruction(pub u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RegisterIndex(pub u32);
 
 impl Instruction {
@@ -74,7 +76,7 @@ impl Instruction {
 impl std::fmt::Debug for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "Instruction {:#010x}, primary opcode = {:#04x}, secondary opcode = {:#04x}",
+            "Instruction {:#010X}, primary opcode = {:#04X}, secondary opcode = {:#04X}",
             self.0,
             self.primary(),
             self.secondary()

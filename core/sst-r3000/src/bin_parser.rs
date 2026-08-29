@@ -1,15 +1,15 @@
 use std::io::{self, Read};
 
-use crate::{BranchDelay, Cycle, Delay, Entry, LoadDelay, State, Test, traits::ReadBytesExt as _};
+use crate::{BranchDelay, Cycle, Delay, LoadDelay, State, Test, Tests, traits::ReadBytesExt as _};
 
-impl Test {
+impl Tests {
     pub fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
         let num_tests = usize::try_from(reader.read_le_i32()?).unwrap();
 
         let mut entries = Vec::new();
 
         for _ in 0..num_tests {
-            let entry = Entry::from_reader(reader)?;
+            let entry = Test::from_reader(reader)?;
             entries.push(entry);
         }
 
@@ -17,7 +17,7 @@ impl Test {
     }
 }
 
-impl Entry {
+impl Test {
     fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
         let name = {
             let mut buffer = [0_u8; 51];
@@ -66,7 +66,7 @@ impl State {
             *reg = reader.read_le_u32()?;
         }
 
-        assert_ne!(r[0], 0);
+        assert_eq!(r[0], 0);
 
         let hi = reader.read_le_u32()?;
         let lo = reader.read_le_u32()?;
@@ -91,29 +91,29 @@ impl State {
 
 impl Delay {
     fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
-        Ok(Self {
-            load: LoadDelay::from_reader(reader)?,
-            branch: BranchDelay::from_reader(reader)?,
-        })
+        let branch = BranchDelay::from_reader(reader)?;
+        let load = LoadDelay::from_reader(reader)?;
+
+        Ok(Self { load, branch })
     }
 }
 
 impl LoadDelay {
+    fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
+        Ok(Self {
+            target: reader.read_le_i32()?,
+            val: reader.read_le_u32()?,
+        })
+    }
+}
+
+impl BranchDelay {
     fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
         let target = reader.read_le_u32()?;
         let slot = reader.read_le_u32()? != 0;
         let take = reader.read_le_u32()? != 0;
 
         Ok(Self { slot, take, target })
-    }
-}
-
-impl BranchDelay {
-    fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
-        Ok(Self {
-            target: reader.read_le_i32()?,
-            val: reader.read_le_u32()?,
-        })
     }
 }
 
@@ -134,13 +134,13 @@ impl Cycle {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::{
         fs::{self, File},
         path::Path,
     };
 
-    use crate::{Test, parse_bin, parse_json_with_cache, tests_path};
+    use crate::{Tests, parse_bin, parse_json_with_cache, tests_path};
 
     #[test]
     #[ignore = "no need to run it in the CI"]
@@ -160,7 +160,7 @@ mod test {
 
             let path_json = path.with_extension(""); // Remove ".bin"
 
-            let json: Test = {
+            let json: Tests = {
                 let file = File::open(path_json).unwrap();
                 serde_json::from_reader(file).unwrap()
             };
@@ -183,7 +183,7 @@ mod test {
                 continue;
             }
 
-            let json: Test = {
+            let json: Tests = {
                 let file = File::open(&path).unwrap();
                 serde_json::from_reader(file).unwrap()
             };

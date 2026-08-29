@@ -18,11 +18,17 @@ use crate::components::cpu::instruction::RegisterIndex;
 /// | -       | hi,lo  | Multiply/divide results, may be changed by subroutines  |
 #[derive(Debug, Default)]
 pub struct Registers {
-    r: [u32; 32],
+    pub r: [u32; 32],
 
     pub pc: u32,
     pub hi: u32,
     pub lo: u32,
+
+    pub delayed_load: Option<(RegisterIndex, u32)>,
+    pub delayed_load_next: Option<(RegisterIndex, u32)>,
+
+    pub next_pc: u32,
+    pub delayed_branch: Option<(u32, bool)>,
 }
 
 impl Registers {
@@ -37,5 +43,73 @@ impl Registers {
         }
 
         self.r[index.0 as usize] = value;
+
+        if let Some(load) = self.delayed_load
+            && index == load.0
+        {
+            self.delayed_load = None;
+        }
+    }
+
+    pub fn set_r_delayed(&mut self, index: RegisterIndex, value: u32) {
+        // $zero
+        if index.0 == 0 {
+            return;
+        }
+
+        self.delayed_load_next = Some((index, value));
+
+        if let Some(load) = self.delayed_load
+            && index == load.0
+        {
+            self.delayed_load = None;
+        }
+
+        //self.out_r[index.0 as usize] = value;
+    }
+
+    pub fn process_load_delay(&mut self) {
+        if let Some((index, value)) = self.delayed_load {
+            self.r[index.0 as usize] = value;
+        }
+
+        self.delayed_load = self.delayed_load_next.take();
+    }
+
+    /*pub fn stage_load_delay(&mut self, index: RegisterIndex, value: u32) {
+        self.delayed_load = Some((index, value));
+    }
+
+    pub fn commit_load_delay(&mut self) {
+        if let Some((index, value)) = self.delayed_load.take() {
+            self.set_r_delayed(index, value);
+        }
+    }
+
+    pub fn commit_r(&mut self) {
+        self.r = self.out_r;
+    }
+
+    pub fn commit_to_out(&mut self) {
+        self.out_r = self.r;
+    }*/
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_delay() {
+        let mut registers = Registers {
+            delayed_load: Some((RegisterIndex(2), 0xFFFF)),
+            ..Default::default()
+        };
+
+        assert_eq!(registers.delayed_load, Some((RegisterIndex(2), 0xFFFF)));
+        registers.set_r(RegisterIndex(1), 0x1111);
+        assert_eq!(registers.delayed_load, Some((RegisterIndex(2), 0xFFFF)));
+        registers.set_r(RegisterIndex(2), 0x1111);
+        assert_eq!(registers.delayed_load, None);
     }
 }
