@@ -64,35 +64,15 @@ impl Registers {
         {
             self.delayed_load = None;
         }
-
-        //self.out_r[index.0 as usize] = value;
     }
 
     pub fn process_load_delay(&mut self) {
-        if let Some((index, value)) = self.delayed_load {
+        if let Some((index, value)) = self.delayed_load.take() {
             self.r[index.0 as usize] = value;
         }
 
         self.delayed_load = self.delayed_load_next.take();
     }
-
-    /*pub fn stage_load_delay(&mut self, index: RegisterIndex, value: u32) {
-        self.delayed_load = Some((index, value));
-    }
-
-    pub fn commit_load_delay(&mut self) {
-        if let Some((index, value)) = self.delayed_load.take() {
-            self.set_r_delayed(index, value);
-        }
-    }
-
-    pub fn commit_r(&mut self) {
-        self.r = self.out_r;
-    }
-
-    pub fn commit_to_out(&mut self) {
-        self.out_r = self.r;
-    }*/
 }
 
 #[cfg(test)]

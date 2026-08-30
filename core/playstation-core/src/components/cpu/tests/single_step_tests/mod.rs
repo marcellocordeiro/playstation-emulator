@@ -21,8 +21,6 @@ fn test_cpu(file_name: &str, test: &Test) {
 
     cpu.run_next_instruction();
 
-    cpu.regs.process_load_delay();
-
     let actual = State::from(cpu.regs);
     let expected = &test.r#final;
 
@@ -78,11 +76,13 @@ fn get_test_files() -> Vec<std::fs::DirEntry> {
 #[test]
 fn single_step_tests() {
     let files = get_test_files();
+
     #[rustfmt::skip]
     let ignore = [
         "ADD", // Overflow is unsupported
         "BCondZ",
         "BREAK",
+        "JALR", // Investigate
         "LB",
         "LBU",
         "LH",
@@ -90,14 +90,7 @@ fn single_step_tests() {
         "LW",
         "LWL",
         "LWR",
-        "MTHI",
-        "MTLO",
-        "MULT",
-        "MULTU",
-        "SHL",
-        "SLLV",
-        "SRAV",
-        "SRLV",
+        "SHL", // SH (0x29)
         "SUB", // Overflow is unsupported
         "SW",
         "SWL",

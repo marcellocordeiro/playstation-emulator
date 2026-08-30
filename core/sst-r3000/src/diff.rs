@@ -43,12 +43,12 @@ impl State {
             diffs.push(StateDiff::LoadDelay(actual.delay.load, expected.delay.load));
         }
 
-        // if actual.delay.branch != expected.delay.branch {
-        //     diffs.push(StateDiff::BranchDelay(
-        //         actual.delay.branch,
-        //         expected.delay.branch,
-        //     ));
-        // }
+        if actual.delay.branch != expected.delay.branch {
+            diffs.push(StateDiff::BranchDelay(
+                actual.delay.branch,
+                expected.delay.branch,
+            ));
+        }
 
         diffs
     }

@@ -7,11 +7,8 @@ pub struct Cpu<Mem: MemoryInterface> {
     regs: Registers,
     memory: Mem,
 
-    //next_instruction: Instruction,
     /// COP0 register 12: Status Register
     sr: u32,
-
-    current_pc: u32,
 }
 
 impl<Mem: MemoryInterface> Cpu<Mem> {
@@ -24,20 +21,18 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             regs,
             memory,
             sr: 0,
-            current_pc: 0,
         }
     }
 
     pub fn run_next_instruction(&mut self) {
         let pc = self.regs.pc;
+        let _in_delay_slot = self.regs.delayed_branch.is_some();
 
-        // Delayed instruction
         let instruction = Instruction(self.load_word(pc));
-
-        self.current_pc = pc;
 
         self.regs.pc = self.regs.next_pc;
         self.regs.next_pc = self.regs.next_pc.wrapping_add(4);
+        self.regs.delayed_branch = None;
 
         self.run_instruction(instruction);
 
@@ -51,7 +46,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn branch(&mut self, offset: u32, take: bool) {
         // PC is always aligned to 32 bits
         let offset = offset << 2;
-        let address = self.regs.pc.wrapping_add(offset); // run_next_instruction eagerly advances PC
+        let address = self.regs.pc.wrapping_add(offset);
 
         if take {
             self.regs.next_pc = address;

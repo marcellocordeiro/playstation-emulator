@@ -487,8 +487,6 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     // Secondary
 
     /// Shift Left Logical
-    ///
-    /// AKA: SHL
     fn sll(&mut self, instruction: Instruction) {
         let imm = instruction.shift_imm();
         let rt = instruction.rt();
@@ -521,19 +519,42 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         self.regs.set_r(rd, result as u32);
     }
 
+    /// Shift Left Logical Variable
     fn sllv(&mut self, instruction: Instruction) {
-        // SLLV
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+        let rd = instruction.rd();
+
+        let shamnt = self.regs.get_r(rs) & 0x1F;
+
+        let result = self.regs.get_r(rt) << shamnt;
+
+        self.regs.set_r(rd, result);
     }
 
+    /// Shift Right Logical Variable
     fn srlv(&mut self, instruction: Instruction) {
-        // SRLV
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+        let rd = instruction.rd();
+
+        let shamnt = self.regs.get_r(rs) & 0x1F;
+
+        let result = self.regs.get_r(rt) >> shamnt;
+
+        self.regs.set_r(rd, result);
     }
 
     fn srav(&mut self, instruction: Instruction) {
-        // SRAV
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+        let rd = instruction.rd();
+
+        let shamnt = self.regs.get_r(rs) & 0x1F;
+
+        let result = (self.regs.get_r(rt) as i32) >> shamnt;
+
+        self.regs.set_r(rd, result as u32);
     }
 
     /// Jump Register
@@ -578,9 +599,13 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         self.regs.set_r(rd, value);
     }
 
+    /// Move To HI
     fn mthi(&mut self, instruction: Instruction) {
-        // MTHI
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+
+        let value = self.regs.get_r(rs);
+
+        self.regs.hi = value;
     }
 
     /// Move From LO
@@ -593,18 +618,39 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     fn mtlo(&mut self, instruction: Instruction) {
-        // MTLO
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+
+        let value = self.regs.get_r(rs);
+
+        self.regs.lo = value;
     }
 
+    /// Multiply
     fn mult(&mut self, instruction: Instruction) {
-        // MULT
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        let a = self.regs.get_r(rs) as i32 as i64;
+        let b = self.regs.get_r(rt) as i32 as i64;
+
+        let result = (a * b) as u64;
+
+        self.regs.hi = (result >> 32) as u32;
+        self.regs.lo = result as u32;
     }
 
+    /// Multiply Unsigned
     fn multu(&mut self, instruction: Instruction) {
-        // MULTU
-        unimplemented!("{instruction:?}");
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        let a = self.regs.get_r(rs) as u64;
+        let b = self.regs.get_r(rt) as u64;
+
+        let result = a * b;
+
+        self.regs.hi = (result >> 32) as u32;
+        self.regs.lo = result as u32;
     }
 
     /// Divide
