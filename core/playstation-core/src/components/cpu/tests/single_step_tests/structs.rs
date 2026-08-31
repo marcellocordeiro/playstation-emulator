@@ -53,6 +53,9 @@ impl From<Registers> for State {
             delayed_load,
             delayed_load_next: _,
             delayed_branch,
+            sr: _,
+            cause: _,
+            epc: _,
         } = value;
 
         let load = {

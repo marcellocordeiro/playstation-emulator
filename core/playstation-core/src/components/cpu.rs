@@ -6,9 +6,6 @@ use crate::components::{
 pub struct Cpu<Mem: MemoryInterface> {
     regs: Registers,
     memory: Mem,
-
-    /// COP0 register 12: Status Register
-    sr: u32,
 }
 
 impl<Mem: MemoryInterface> Cpu<Mem> {
@@ -16,17 +13,13 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let mut regs = Registers::default();
         regs.pc = 0xBFC0_0000; // Beginning of the bios
 
-        Self {
-            regs,
-            memory,
-            sr: 0,
-        }
+        Self { regs, memory }
     }
 
     pub fn run_next_instruction(&mut self) {
-        let pc = self.regs.pc;
+        let current_pc = self.regs.pc;
 
-        let instruction = Instruction(self.load_word(pc));
+        let instruction = Instruction(self.load_word(current_pc));
 
         let (next_pc, _in_delay_slot) = match self.regs.delayed_branch.take() {
             Some((address, true)) => (address, true),

@@ -293,7 +293,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Load Byte
     fn lb(&mut self, instruction: Instruction) {
-        if (self.sr & 0x0001_0000) != 0 {
+        if (self.regs.sr & 0x0001_0000) != 0 {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -323,7 +323,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Load Word
     fn lw(&mut self, instruction: Instruction) {
-        if (self.sr & 0x0001_0000) != 0 {
+        if (self.regs.sr & 0x0001_0000) != 0 {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -343,7 +343,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Load Byte Unsigned
     fn lbu(&mut self, instruction: Instruction) {
-        if (self.sr & 0x0001_0000) != 0 {
+        if (self.regs.sr & 0x0001_0000) != 0 {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -373,7 +373,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Store Byte
     fn sb(&mut self, instruction: Instruction) {
-        if (self.sr & 0x0001_0000) != 0 {
+        if (self.regs.sr & 0x0001_0000) != 0 {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -391,7 +391,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Store Halfword
     fn sh(&mut self, instruction: Instruction) {
-        if (self.sr & 0x0001_0000) != 0 {
+        if (self.regs.sr & 0x0001_0000) != 0 {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -414,7 +414,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Store Word
     fn sw(&mut self, instruction: Instruction) {
-        if (self.sr & 0x0001_0000) != 0 {
+        if (self.regs.sr & 0x0001_0000) != 0 {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -873,7 +873,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let cop_r = instruction.rd().0;
 
         let value = match cop_r {
-            12 => self.sr,
+            12 => self.regs.sr,
             13 => {
                 todo!("Unhandled read from CAUSE register");
             }
@@ -898,7 +898,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
                 assert!(value == 0, "unhandled write to COP0");
             }
 
-            12 => self.sr = value,
+            12 => self.regs.sr = value,
 
             13 => {
                 // CAUSE
