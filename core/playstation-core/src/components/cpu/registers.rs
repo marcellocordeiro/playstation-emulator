@@ -27,7 +27,6 @@ pub struct Registers {
     pub delayed_load: Option<(RegisterIndex, u32)>,
     pub delayed_load_next: Option<(RegisterIndex, u32)>,
 
-    pub next_pc: u32,
     pub delayed_branch: Option<(u32, bool)>,
 }
 

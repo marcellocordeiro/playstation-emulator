@@ -80,9 +80,7 @@ fn single_step_tests() {
     #[rustfmt::skip]
     let ignore = [
         "ADD", // Overflow is unsupported
-        "BCondZ",
         "BREAK",
-        "JALR", // Investigate
         "LB",
         "LBU",
         "LH",
@@ -164,6 +162,35 @@ fn one_shot() {
             "{file_name}: {} out of {}",
             test_result.passed, test_result.total
         );
+    }
+}
+
+#[test]
+#[ignore = "manual only"]
+fn with_selection() {
+    let selection = "BcondZ.json.bin";
+    let file_path = tests_path().unwrap().join(selection);
+
+    let file_name = file_path
+        .with_extension("")
+        .with_extension("")
+        .file_stem()
+        .unwrap()
+        .to_owned()
+        .to_str()
+        .unwrap()
+        .to_owned();
+
+    let tests = parse_json_with_cache(&file_path).unwrap();
+
+    if cfg!(false) {
+        for test in tests.0 {
+            test_cpu(&file_name, &test);
+        }
+    } else {
+        let test = &tests.0[0x2ED];
+        println!("Test name: {}", test.name);
+        test_cpu(&file_name, test);
     }
 }
 

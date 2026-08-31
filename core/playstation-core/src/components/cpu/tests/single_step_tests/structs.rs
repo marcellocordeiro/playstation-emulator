@@ -38,9 +38,6 @@ impl From<State> for Registers {
             lo,
             delayed_load,
             delayed_branch,
-            next_pc: delayed_branch.map_or(pc.wrapping_add(4), |b| {
-                if b.1 { b.0 } else { pc.wrapping_add(4) }
-            }),
             ..Default::default()
         }
     }
@@ -56,7 +53,6 @@ impl From<Registers> for State {
             delayed_load,
             delayed_load_next: _,
             delayed_branch,
-            next_pc: _,
         } = value;
 
         let load = {

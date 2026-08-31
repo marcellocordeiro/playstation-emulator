@@ -1,5 +1,5 @@
 combine_control_expr = false
-# float_literal_trailing_zero = "Always"
+float_literal_trailing_zero = "Always"
 force_multiline_blocks = true
 format_code_in_doc_comments = true
 format_macro_matchers = true

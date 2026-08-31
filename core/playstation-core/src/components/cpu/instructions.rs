@@ -93,27 +93,20 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// BLTZ, BLTZAL, BGEZ and BGEZAL
     fn b_cond_z(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
-        let rs = instruction.rs();
+        match (instruction.0 >> 16) & 0x1F {
+            0b10000 => self.bltzal(instruction),
+            0b10001 => self.bgezal(instruction),
 
-        let is_bgez = (instruction.0 >> 16) & 1;
-        let is_link = ((instruction.0 >> 20) & 1) != 0;
+            // Undocumented dupes
+            _ => {
+                let is_bgez = ((instruction.0 >> 16) & 1) != 0;
 
-        let value = self.regs.get_r(rs) as i32;
-
-        let test = (value < 0) as u32;
-        let test = test ^ is_bgez;
-
-        if test != 0 {
-            if is_link {
-                let ra = self.regs.pc.wrapping_add(4);
-
-                self.regs.set_r(RegisterIndex(31), ra);
+                if is_bgez {
+                    self.bgez(instruction);
+                } else {
+                    self.bltz(instruction);
+                }
             }
-
-            self.branch(offset, true);
-        } else {
-            self.branch(offset, false);
         }
     }
 
@@ -573,11 +566,13 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let ra = self.regs.pc.wrapping_add(4);
 
-        self.regs.set_r(rd, ra);
-
+        // Jump
+        // Need to fetch $(rs) first in case the link writes to it
         let value = self.regs.get_r(rs);
-
         self.jump(value);
+
+        // Link
+        self.regs.set_r(rd, ra);
     }
 
     fn syscall(&mut self, instruction: Instruction) {
@@ -817,6 +812,64 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let result = self.regs.get_r(rs) < self.regs.get_r(rt);
 
         self.regs.set_r(rd, result as u32);
+    }
+}
+
+impl<Mem: MemoryInterface> Cpu<Mem> {
+    // BcondZ
+
+    /// Branch if Less Than Zero
+    fn bltz(&mut self, instruction: Instruction) {
+        let offset = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+
+        let s = self.regs.get_r(rs) as i32;
+
+        let take = s < 0;
+
+        self.branch(offset, take);
+    }
+
+    /// Branch if Greater than or Equal to Zero
+    fn bgez(&mut self, instruction: Instruction) {
+        let offset = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+
+        let s = self.regs.get_r(rs) as i32;
+
+        let take = s >= 0;
+
+        self.branch(offset, take);
+    }
+
+    /// Branch if Less Than Zero And Link
+    fn bltzal(&mut self, instruction: Instruction) {
+        let offset = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+
+        let s = self.regs.get_r(rs) as i32;
+
+        let take = s < 0;
+
+        self.branch(offset, take);
+
+        self.regs
+            .set_r(RegisterIndex(31), self.regs.pc.wrapping_add(4));
+    }
+
+    /// Branch if Greater than or Equal to Zero And Link
+    fn bgezal(&mut self, instruction: Instruction) {
+        let offset = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+
+        let s = self.regs.get_r(rs) as i32;
+
+        let take = s >= 0;
+
+        self.branch(offset, take);
+
+        self.regs
+            .set_r(RegisterIndex(31), self.regs.pc.wrapping_add(4));
     }
 }
 

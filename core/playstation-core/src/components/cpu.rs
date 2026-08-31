@@ -15,7 +15,6 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     pub fn new(memory: Mem) -> Self {
         let mut regs = Registers::default();
         regs.pc = 0xBFC0_0000; // Beginning of the bios
-        regs.next_pc = regs.pc.wrapping_add(4);
 
         Self {
             regs,
@@ -26,13 +25,15 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     pub fn run_next_instruction(&mut self) {
         let pc = self.regs.pc;
-        let _in_delay_slot = self.regs.delayed_branch.is_some();
 
         let instruction = Instruction(self.load_word(pc));
 
-        self.regs.pc = self.regs.next_pc;
-        self.regs.next_pc = self.regs.next_pc.wrapping_add(4);
-        self.regs.delayed_branch = None;
+        let (next_pc, _in_delay_slot) = match self.regs.delayed_branch.take() {
+            Some((address, true)) => (address, true),
+            Some((_, false)) | None => (self.regs.pc.wrapping_add(4), false),
+        };
+
+        self.regs.pc = next_pc;
 
         self.run_instruction(instruction);
 
@@ -48,18 +49,10 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let offset = offset << 2;
         let address = self.regs.pc.wrapping_add(offset);
 
-        if take {
-            self.regs.next_pc = address;
-        }
-
-        // TODO
         self.regs.delayed_branch = Some((address, take));
     }
 
     fn jump(&mut self, address: u32) {
-        self.regs.next_pc = address;
-
-        // TODO
         self.regs.delayed_branch = Some((address, true));
     }
 }
