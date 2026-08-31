@@ -653,27 +653,19 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
         let rt = instruction.rt();
 
-        let n = self.regs.get_r(rs) as i32;
-        let d = self.regs.get_r(rt) as i32;
+        let dividend = self.regs.get_r(rs) as i32;
+        let divisor = self.regs.get_r(rt) as i32;
 
-        if d == 0 {
-            // Division by zero , results are bogus
-            self.regs.hi = n as u32;
-
-            if n >= 0 {
-                self.regs.lo = 0xFFFF_FFFF;
-            } else {
-                self.regs.lo = 1;
-            }
-        } else if (n as u32) == 0x8000_0000 && d == -1 {
-            // Result is not representable in a 32 bit
-            // signed integer
-            self.regs.hi = 0;
-            self.regs.lo = 0x8000_0000;
+        let (quotient, remainder) = if divisor == 0 {
+            (if dividend >= 0 { u32::MAX } else { 1 }, dividend as u32)
+        } else if (dividend as u32) == 0x8000_0000 && divisor == -1 {
+            (0x8000_0000, 0)
         } else {
-            self.regs.hi = (n % d) as u32;
-            self.regs.lo = (n / d) as u32;
-        }
+            ((dividend / divisor) as u32, (dividend % divisor) as u32)
+        };
+
+        self.regs.hi = remainder;
+        self.regs.lo = quotient;
     }
 
     /// Divide Unsigned
@@ -681,17 +673,17 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
         let rt = instruction.rt();
 
-        let n = self.regs.get_r(rs);
-        let d = self.regs.get_r(rt);
+        let dividend = self.regs.get_r(rs);
+        let divisor = self.regs.get_r(rt);
 
-        if d == 0 {
-            // Division by zero , results are bogus
-            self.regs.hi = n;
-            self.regs.lo = 0xFFFF_FFFF;
+        let (quotient, remainder) = if divisor == 0 {
+            (u32::MAX, dividend)
         } else {
-            self.regs.hi = n % d;
-            self.regs.lo = n / d;
-        }
+            (dividend / divisor, dividend % divisor)
+        };
+
+        self.regs.hi = remainder;
+        self.regs.lo = quotient;
     }
 
     /// Add
