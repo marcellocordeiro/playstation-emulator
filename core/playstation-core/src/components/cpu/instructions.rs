@@ -8,8 +8,51 @@ use crate::components::{
     memory::MemoryInterface,
 };
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum CpuException {
+    #[default]
+    Interrupt,
+    LoadAddressError,
+    StoreAddressError,
+    Syscall,
+    Breakpoint,
+    ArithmeticOverflow,
+
+    Other(u32),
+}
+
+impl CpuException {
+    pub fn from_bits(value: u32) -> Self {
+        match value {
+            0x0 => Self::Interrupt,
+            0x4 => Self::LoadAddressError,
+            0x5 => Self::StoreAddressError,
+            0x8 => Self::Syscall,
+            0x9 => Self::Breakpoint,
+            0xC => Self::ArithmeticOverflow,
+
+            other => Self::Other(other),
+        }
+    }
+
+    pub fn to_cause(self) -> u32 {
+        match self {
+            Self::Interrupt => 0x0,
+            Self::LoadAddressError => 0x4,
+            Self::StoreAddressError => 0x5,
+            Self::Syscall => 0x8,
+            Self::Breakpoint => 0x9,
+            Self::ArithmeticOverflow => 0xC,
+
+            Self::Other(value) => value,
+        }
+    }
+}
+
+type CpuExecutionResult<T> = Result<T, CpuException>;
+
 impl<Mem: MemoryInterface> Cpu<Mem> {
-    pub fn run_instruction(&mut self, instruction: Instruction) {
+    pub fn run_instruction(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         //info!("Executing {instruction:?}");
 
         match instruction.primary() {
@@ -22,8 +65,8 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x00 if instruction.secondary() == 0x07 => self.srav(instruction),
             0x00 if instruction.secondary() == 0x08 => self.jr(instruction),
             0x00 if instruction.secondary() == 0x09 => self.jalr(instruction),
-            0x00 if instruction.secondary() == 0x0C => self.syscall(instruction),
-            0x00 if instruction.secondary() == 0x0D => self.r#break(instruction),
+            0x00 if instruction.secondary() == 0x0C => self.syscall(instruction)?,
+            0x00 if instruction.secondary() == 0x0D => self.r#break(instruction)?,
             0x00 if instruction.secondary() == 0x10 => self.mfhi(instruction),
             0x00 if instruction.secondary() == 0x11 => self.mthi(instruction),
             0x00 if instruction.secondary() == 0x12 => self.mflo(instruction),
@@ -32,9 +75,9 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x00 if instruction.secondary() == 0x19 => self.multu(instruction),
             0x00 if instruction.secondary() == 0x1A => self.div(instruction),
             0x00 if instruction.secondary() == 0x1B => self.divu(instruction),
-            0x00 if instruction.secondary() == 0x20 => self.add(instruction),
+            0x00 if instruction.secondary() == 0x20 => self.add(instruction)?,
             0x00 if instruction.secondary() == 0x21 => self.addu(instruction),
-            0x00 if instruction.secondary() == 0x22 => self.sub(instruction),
+            0x00 if instruction.secondary() == 0x22 => self.sub(instruction)?,
             0x00 if instruction.secondary() == 0x23 => self.subu(instruction),
             0x00 if instruction.secondary() == 0x24 => self.and(instruction),
             0x00 if instruction.secondary() == 0x25 => self.or(instruction),
@@ -51,7 +94,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x05 => self.bne(instruction),
             0x06 => self.blez(instruction),
             0x07 => self.bgtz(instruction),
-            0x08 => self.addi(instruction),
+            0x08 => self.addi(instruction)?,
             0x09 => self.addiu(instruction),
             0x0A => self.slti(instruction),
             0x0B => self.sltiu(instruction),
@@ -66,14 +109,14 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x20 => self.lb(instruction),
             0x21 => self.lh(instruction),
             0x22 => self.lwl(instruction),
-            0x23 => self.lw(instruction),
+            0x23 => self.lw(instruction)?,
             0x24 => self.lbu(instruction),
             0x25 => self.lhu(instruction),
             0x26 => self.lwr(instruction),
             0x28 => self.sb(instruction),
-            0x29 => self.sh(instruction),
+            0x29 => self.sh(instruction)?,
             0x2A => self.swl(instruction),
-            0x2B => self.sw(instruction),
+            0x2B => self.sw(instruction)?,
             0x2E => self.swr(instruction),
             0x30 => self.lwc0(instruction),
             0x31 => self.lwc1(instruction),
@@ -85,6 +128,8 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x3B => self.swc3(instruction),
             _ => panic!("Invalid instruction: {instruction:?}"),
         }
+
+        Ok(())
     }
 }
 
@@ -176,17 +221,19 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Add Immediate
-    fn addi(&mut self, instruction: Instruction) {
+    fn addi(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         let imm = instruction.imm_sign_extended() as i32;
         let rt = instruction.rt();
         let rs = instruction.rs();
 
         let value = match (self.regs.get_r(rs) as i32).checked_add(imm) {
             Some(value) => value as u32,
-            None => unimplemented!("Unsupported ADDI overflow"),
+            None => return Err(CpuException::ArithmeticOverflow),
         };
 
         self.regs.set_r(rt, value);
+
+        Ok(())
     }
 
     /// Add Immediate Unsigned
@@ -266,6 +313,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         match instruction.cop_opcode() {
             0b00000 => self.mfc0(instruction),
             0b00100 => self.mtc0(instruction),
+            0b10000 => self.rfe(instruction),
 
             _ => {
                 unimplemented!(
@@ -293,7 +341,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Load Byte
     fn lb(&mut self, instruction: Instruction) {
-        if (self.regs.sr & 0x0001_0000) != 0 {
+        if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -322,11 +370,11 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Load Word
-    fn lw(&mut self, instruction: Instruction) {
-        if (self.regs.sr & 0x0001_0000) != 0 {
+    fn lw(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
+        if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
-            return;
+            return Ok(());
         }
 
         let imm = instruction.imm_sign_extended();
@@ -334,16 +382,22 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
-        let value = self.load_word(address);
 
-        // Load delay slot
-        //self.regs.stage_load_delay(rt, value);
-        self.regs.set_r_delayed(rt, value);
+        if address % 4 == 0 {
+            let value = self.load_word(address);
+
+            // Load delay slot
+            self.regs.set_r_delayed(rt, value);
+        } else {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        Ok(())
     }
 
     /// Load Byte Unsigned
     fn lbu(&mut self, instruction: Instruction) {
-        if (self.regs.sr & 0x0001_0000) != 0 {
+        if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -358,7 +412,6 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         // Load delay slot
         self.regs.set_r_delayed(rt, value as u32);
-        //self.regs.stage_load_delay(rt, value as u32);
     }
 
     fn lhu(&mut self, instruction: Instruction) {
@@ -373,7 +426,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Store Byte
     fn sb(&mut self, instruction: Instruction) {
-        if (self.regs.sr & 0x0001_0000) != 0 {
+        if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
             return;
@@ -390,11 +443,11 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Store Halfword
-    fn sh(&mut self, instruction: Instruction) {
-        if (self.regs.sr & 0x0001_0000) != 0 {
+    fn sh(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
+        if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
-            return;
+            return Ok(());
         }
 
         let imm = instruction.imm_sign_extended();
@@ -402,9 +455,16 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
-        let value = self.regs.get_r(rt) as u16;
 
-        self.memory.store_halfword(address, value);
+        if address % 2 == 0 {
+            let value = self.regs.get_r(rt) as u16;
+
+            self.memory.store_halfword(address, value);
+        } else {
+            return Err(CpuException::StoreAddressError);
+        }
+
+        Ok(())
     }
 
     fn swl(&mut self, instruction: Instruction) {
@@ -413,11 +473,11 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Store Word
-    fn sw(&mut self, instruction: Instruction) {
-        if (self.regs.sr & 0x0001_0000) != 0 {
+    fn sw(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
+        if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
             info!("Ignoring store while cache is isolated");
-            return;
+            return Ok(());
         }
 
         let imm = instruction.imm_sign_extended();
@@ -425,9 +485,16 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
-        let value = self.regs.get_r(rt);
 
-        self.memory.store_word(address, value);
+        if address % 4 == 0 {
+            let value = self.regs.get_r(rt);
+
+            self.memory.store_word(address, value);
+        } else {
+            return Err(CpuException::StoreAddressError);
+        }
+
+        Ok(())
     }
 
     fn swr(&mut self, instruction: Instruction) {
@@ -575,14 +642,12 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         self.regs.set_r(rd, ra);
     }
 
-    fn syscall(&mut self, instruction: Instruction) {
-        // SYSCALL
-        unimplemented!("{instruction:?}");
+    fn syscall(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::Syscall)
     }
 
-    fn r#break(&mut self, instruction: Instruction) {
-        // BREAK
-        unimplemented!("{instruction:?}");
+    fn r#break(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::Breakpoint)
     }
 
     /// Move From HI
@@ -687,7 +752,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Add
-    fn add(&mut self, instruction: Instruction) {
+    fn add(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         let rs = instruction.rs();
         let rt = instruction.rt();
         let rd = instruction.rd();
@@ -697,10 +762,12 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let result = match (s).checked_add(t) {
             Some(value) => value as u32,
-            None => unimplemented!("Unsupported ADD overflow"),
+            None => return Err(CpuException::ArithmeticOverflow),
         };
 
         self.regs.set_r(rd, result);
+
+        Ok(())
     }
 
     /// Add Unsigned
@@ -715,7 +782,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Sub
-    fn sub(&mut self, instruction: Instruction) {
+    fn sub(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         let rs = instruction.rs();
         let rt = instruction.rt();
         let rd = instruction.rd();
@@ -725,10 +792,12 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let result = match (s).checked_sub(t) {
             Some(value) => value as u32,
-            None => unimplemented!("Unsupported ADD overflow"),
+            None => return Err(CpuException::ArithmeticOverflow),
         };
 
         self.regs.set_r(rd, result);
+
+        Ok(())
     }
 
     /// Sub Unsigned
@@ -868,15 +937,15 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 impl<Mem: MemoryInterface> Cpu<Mem> {
     // COP
 
+    /// Move From Coprocessor 0
     fn mfc0(&mut self, instruction: Instruction) {
         let cpu_r = instruction.rt();
         let cop_r = instruction.rd().0;
 
         let value = match cop_r {
-            12 => self.regs.sr,
-            13 => {
-                todo!("Unhandled read from CAUSE register");
-            }
+            12 => self.regs.cop0.sr.read(),
+            13 => self.regs.cop0.cause.read(),
+            14 => self.regs.cop0.epc,
 
             _ => {
                 todo!("Unhandled read from COP0");
@@ -898,7 +967,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
                 assert!(value == 0, "unhandled write to COP0");
             }
 
-            12 => self.regs.sr = value,
+            12 => self.regs.cop0.sr.write(value),
 
             13 => {
                 // CAUSE
@@ -907,5 +976,15 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
             nn => unimplemented!("Unimplemented COP0 register: {nn}"),
         }
+    }
+
+    fn rfe(&mut self, instruction: Instruction) {
+        if instruction.0 & 0x3F != 0b010000 {
+            panic!("Invalid cop0 instruction: {instruction}")
+        }
+
+        let mode = self.regs.cop0.sr.raw & 0x3F;
+        self.regs.cop0.sr.raw &= !0x3F;
+        self.regs.cop0.sr.raw |= mode >> 2;
     }
 }

@@ -8,6 +8,8 @@ use crate::components::{
     memory::{MemoryInterface as _, bios::Bios},
 };
 
+// SHL (from the tests) == SH (Store Halfword)
+
 fn test_cpu(file_name: &str, test: &Test) {
     let bios = Bios::new_dummy();
     let mut memory = TestMemory::new(bios);
@@ -79,8 +81,6 @@ fn single_step_tests() {
 
     #[rustfmt::skip]
     let ignore = [
-        "ADD", // Overflow is unsupported
-        "BREAK",
         "LB",
         "LBU",
         "LH",
@@ -88,12 +88,8 @@ fn single_step_tests() {
         "LW",
         "LWL",
         "LWR",
-        "SHL", // SH (0x29)
-        "SUB", // Overflow is unsupported
-        "SW",
         "SWL",
         "SWR",
-        "SYSCALL",
     ];
 
     for file in &files {
@@ -168,7 +164,7 @@ fn one_shot() {
 #[test]
 #[ignore = "manual only"]
 fn with_selection() {
-    let selection = "BcondZ.json.bin";
+    let selection = "SHL.json.bin";
     let file_path = tests_path().unwrap().join(selection);
 
     let file_name = file_path
@@ -183,7 +179,7 @@ fn with_selection() {
 
     let tests = parse_json_with_cache(&file_path).unwrap();
 
-    if cfg!(false) {
+    if cfg!(true) {
         for test in tests.0 {
             test_cpu(&file_name, &test);
         }

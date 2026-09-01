@@ -1,6 +1,10 @@
 use sst_r3000::{BranchDelay, Delay, LoadDelay, State};
 
-use crate::components::cpu::{instruction::RegisterIndex, registers::Registers};
+use crate::components::cpu::{
+    cop0::{CauseRegister, Cop0, StatusRegister},
+    instruction::RegisterIndex,
+    registers::Registers,
+};
 
 impl From<State> for Registers {
     fn from(value: State) -> Self {
@@ -8,9 +12,9 @@ impl From<State> for Registers {
             r,
             hi,
             lo,
-            epc: _,
+            epc,
             tar: _,
-            cause: _,
+            cause,
             pc,
             delay,
         } = value;
@@ -31,6 +35,13 @@ impl From<State> for Registers {
             if slot { Some((target, take)) } else { None }
         };
 
+        let cop0 = {
+            let sr = StatusRegister::default();
+            let cause = CauseRegister::from(cause);
+
+            Cop0 { sr, cause, epc }
+        };
+
         Self {
             r,
             pc,
@@ -38,6 +49,7 @@ impl From<State> for Registers {
             lo,
             delayed_load,
             delayed_branch,
+            cop0,
             ..Default::default()
         }
     }
@@ -53,10 +65,11 @@ impl From<Registers> for State {
             delayed_load,
             delayed_load_next: _,
             delayed_branch,
-            sr: _,
-            cause: _,
-            epc: _,
+            cop0,
         } = value;
+
+        let Cop0 { sr: _, cause, epc } = cop0;
+        let cause = cause.read();
 
         let load = {
             let (target, val) =
@@ -76,9 +89,9 @@ impl From<Registers> for State {
             r,
             hi,
             lo,
-            epc: 0,
+            epc,
             tar: 0,
-            cause: 0,
+            cause,
             pc,
             delay: Delay { load, branch },
         }

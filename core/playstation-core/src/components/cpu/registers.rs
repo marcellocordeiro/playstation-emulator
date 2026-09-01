@@ -1,4 +1,4 @@
-use crate::components::cpu::instruction::RegisterIndex;
+use crate::components::cpu::{cop0::Cop0, instruction::RegisterIndex};
 
 /// | Name    | Alias  | Common Usage                                            |
 /// | ------- | ------ | ------------------------------------------------------- |
@@ -29,12 +29,7 @@ pub struct Registers {
 
     pub delayed_branch: Option<(u32, bool)>,
 
-    /// COP0 register 12: Status Register
-    pub sr: u32,
-    /// COP0 register 13: Cause Register
-    pub cause: u32,
-    /// COP0 register 14: EPC
-    pub epc: u32,
+    pub cop0: Cop0,
 }
 
 impl Registers {

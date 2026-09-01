@@ -35,6 +35,14 @@ impl State {
             diffs.push(StateDiff::Lo(actual.lo, expected.lo));
         }
 
+        if actual.epc != expected.epc {
+            diffs.push(StateDiff::Epc(actual.epc, expected.epc));
+        }
+
+        // if actual.cause != expected.cause {
+        //     diffs.push(StateDiff::Cause(actual.cause, expected.cause));
+        // }
+
         if actual.pc != expected.pc {
             diffs.push(StateDiff::Pc(actual.pc, expected.pc));
         }
