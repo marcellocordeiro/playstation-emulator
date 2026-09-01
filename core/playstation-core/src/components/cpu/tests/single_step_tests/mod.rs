@@ -15,6 +15,18 @@ fn test_cpu(file_name: &str, test: &Test) {
     let mut memory = TestMemory::new(bios);
 
     memory.store_word(test.opcode_addr, test.opcode);
+
+    for cycle in &test.cycles {
+        let address = cycle.addr as u32;
+        let value = cycle.val as u32;
+
+        if address == test.opcode_addr {
+            assert_eq!(value, test.opcode);
+            continue;
+        }
+
+        memory.store_word(address, value);
+    }
     let mut cpu = Cpu::new(memory);
 
     let initial_regs = Registers::from(test.initial);
@@ -79,19 +91,6 @@ fn get_test_files() -> Vec<std::fs::DirEntry> {
 fn single_step_tests() {
     let files = get_test_files();
 
-    #[rustfmt::skip]
-    let ignore = [
-        "LB",
-        "LBU",
-        "LH",
-        "LHU",
-        "LW",
-        "LWL",
-        "LWR",
-        "SWL",
-        "SWR",
-    ];
-
     for file in &files {
         let file_path = file.path(); // ADD.json.bin -> ADD.json
         let file_name = file_path
@@ -103,10 +102,6 @@ fn single_step_tests() {
             .to_str()
             .unwrap()
             .to_owned();
-
-        if ignore.contains(&file_name.as_str()) {
-            continue;
-        }
 
         let tests = parse_json_with_cache(&file_path).unwrap();
 
@@ -164,7 +159,7 @@ fn one_shot() {
 #[test]
 #[ignore = "manual only"]
 fn with_selection() {
-    let selection = "LHU.json.bin";
+    let selection = "SWL.json.bin";
     let file_path = tests_path().unwrap().join(selection);
 
     let file_name = file_path
@@ -184,7 +179,7 @@ fn with_selection() {
             test_cpu(&file_name, &test);
         }
     } else {
-        let test = &tests.0[0x2ED];
+        let test = &tests.0[0x03C];
         println!("Test name: {}", test.name);
         test_cpu(&file_name, test);
     }

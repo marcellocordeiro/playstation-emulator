@@ -37,6 +37,17 @@ impl Registers {
         self.r[index.0 as usize]
     }
 
+    /// For LWL and LWR
+    pub fn get_r_with_delayed_load(&self, index: RegisterIndex) -> u32 {
+        if let Some((slot_index, value)) = self.delayed_load
+            && (slot_index == index)
+        {
+            value
+        } else {
+            self.get_r(index)
+        }
+    }
+
     pub fn set_r(&mut self, index: RegisterIndex, value: u32) {
         // $zero
         if index.0 == 0 {
@@ -53,11 +64,6 @@ impl Registers {
     }
 
     pub fn set_r_delayed(&mut self, index: RegisterIndex, value: u32) {
-        // $zero
-        if index.0 == 0 {
-            return;
-        }
-
         self.delayed_load_next = Some((index, value));
 
         if let Some(load) = self.delayed_load
@@ -68,7 +74,9 @@ impl Registers {
     }
 
     pub fn process_load_delay(&mut self) {
-        if let Some((index, value)) = self.delayed_load.take() {
+        if let Some((index, value)) = self.delayed_load.take()
+            && index.0 != 0
+        {
             self.r[index.0 as usize] = value;
         }
 

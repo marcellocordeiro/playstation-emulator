@@ -16,6 +16,8 @@ pub enum CpuException {
     StoreAddressError,
     Syscall,
     Breakpoint,
+    ReservedInstruction,
+    CoprocessorUnusable,
     ArithmeticOverflow,
 
     Other(u32),
@@ -29,6 +31,8 @@ impl CpuException {
             0x5 => Self::StoreAddressError,
             0x8 => Self::Syscall,
             0x9 => Self::Breakpoint,
+            0xA => Self::ReservedInstruction,
+            0xB => Self::CoprocessorUnusable,
             0xC => Self::ArithmeticOverflow,
 
             other => Self::Other(other),
@@ -42,6 +46,8 @@ impl CpuException {
             Self::StoreAddressError => 0x5,
             Self::Syscall => 0x8,
             Self::Breakpoint => 0x9,
+            Self::ReservedInstruction => 0xA,
+            Self::CoprocessorUnusable => 0xB,
             Self::ArithmeticOverflow => 0xC,
 
             Self::Other(value) => value,
@@ -55,7 +61,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     pub fn run_instruction(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         //info!("Executing {instruction:?}");
 
-        match instruction.primary() {
+        Ok(match instruction.primary() {
             // Secondary
             0x00 if instruction.secondary() == 0x00 => self.sll(instruction),
             0x00 if instruction.secondary() == 0x02 => self.srl(instruction),
@@ -118,18 +124,21 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x2A => self.swl(instruction),
             0x2B => self.sw(instruction)?,
             0x2E => self.swr(instruction),
-            0x30 => self.lwc0(instruction),
-            0x31 => self.lwc1(instruction),
+            0x30 => self.lwc0(instruction)?,
+            0x31 => self.lwc1(instruction)?,
             0x32 => self.lwc2(instruction),
-            0x33 => self.lwc3(instruction),
-            0x38 => self.swc0(instruction),
-            0x39 => self.swc1(instruction),
+            0x33 => self.lwc3(instruction)?,
+            0x38 => self.swc0(instruction)?,
+            0x39 => self.swc1(instruction)?,
             0x3A => self.swc2(instruction),
-            0x3B => self.swc3(instruction),
-            _ => panic!("Invalid instruction: {instruction:?}"),
-        }
+            0x3B => self.swc3(instruction)?,
+            _ => self.illegal(instruction)?,
+        })
+    }
 
-        Ok(())
+    fn illegal(&self, instruction: Instruction) -> CpuExecutionResult<()> {
+        info!("Invalid instruction: {instruction:?}");
+        Err(CpuException::ReservedInstruction)
     }
 }
 
@@ -378,9 +387,25 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         Ok(())
     }
 
+    /// Load Word Left (unaligned, little-endian)
     fn lwl(&mut self, instruction: Instruction) {
-        // LWL
-        unimplemented!("{instruction:?}");
+        let imm = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+
+        let current_value = self.regs.get_r_with_delayed_load(rt);
+
+        let aligned_address = address & !0b11;
+        let aligned_word = self.load_word(aligned_address);
+
+        let shift = 8 * ((address & 0b11) ^ 3);
+        let mask = 0xFFFF_FFFF << shift;
+
+        let result = (current_value & !mask) | (aligned_word << shift);
+
+        self.regs.set_r_delayed(rt, result);
     }
 
     /// Load Word
@@ -448,9 +473,25 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         Ok(())
     }
 
+    /// Load Word Right (unaligned, little-endian)
     fn lwr(&mut self, instruction: Instruction) {
-        // LWR
-        unimplemented!("{instruction:?}");
+        let imm = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+
+        let current_value = self.regs.get_r_with_delayed_load(rt);
+
+        let aligned_address = address & !0b11;
+        let aligned_word = self.load_word(aligned_address);
+
+        let shift = 8 * (address & 0b11);
+        let mask = 0xFFFF_FFFF >> shift;
+
+        let result = (current_value & !mask) | (aligned_word >> shift);
+
+        self.regs.set_r_delayed(rt, result);
     }
 
     /// Store Byte
@@ -497,8 +538,23 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     fn swl(&mut self, instruction: Instruction) {
-        // SWL
-        unimplemented!("{instruction:?}");
+        let imm = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+
+        let current_value = self.regs.get_r_with_delayed_load(rt);
+
+        let aligned_address = address & !0b11;
+        let aligned_word = self.load_word(aligned_address);
+
+        let shift = 8 * ((address & 0b11) ^ 3);
+        let mask = 0xFFFF_FFFF << shift;
+
+        let result = (current_value & !mask) | (aligned_word << shift);
+
+        self.memory.store_word(aligned_address, result);
     }
 
     /// Store Word
@@ -526,49 +582,57 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         Ok(())
     }
 
+    /// Store Word Right (unaligned, little-endian)
     fn swr(&mut self, instruction: Instruction) {
-        // SWR
-        unimplemented!("{instruction:?}");
+        let imm = instruction.imm_sign_extended();
+        let rs = instruction.rs();
+        let rt = instruction.rt();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+
+        let current_value = self.regs.get_r_with_delayed_load(rt);
+
+        let aligned_address = address & !0b11;
+        let aligned_word = self.load_word(aligned_address);
+
+        let shift = 8 * (address & 0b11);
+        let mask = 0xFFFF_FFFF >> shift;
+
+        let result = (current_value & !mask) | (aligned_word >> shift);
+
+        self.memory.store_word(aligned_address, result);
     }
 
-    fn lwc0(&mut self, instruction: Instruction) {
-        // LWC0
-        unimplemented!("{instruction:?}");
+    fn lwc0(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::CoprocessorUnusable)
     }
 
-    fn lwc1(&mut self, instruction: Instruction) {
-        // LWC1
-        unimplemented!("{instruction:?}");
+    fn lwc1(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::CoprocessorUnusable)
     }
 
     fn lwc2(&mut self, instruction: Instruction) {
-        // LWC2
-        unimplemented!("{instruction:?}");
+        unimplemented!("Unhandled GTE LWC: {instruction:?}");
     }
 
-    fn lwc3(&mut self, instruction: Instruction) {
-        // LWC3
-        unimplemented!("{instruction:?}");
+    fn lwc3(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::CoprocessorUnusable)
     }
 
-    fn swc0(&mut self, instruction: Instruction) {
-        // SWC0
-        unimplemented!("{instruction:?}");
+    fn swc0(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::CoprocessorUnusable)
     }
 
-    fn swc1(&mut self, instruction: Instruction) {
-        // SWC1
-        unimplemented!("{instruction:?}");
+    fn swc1(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::CoprocessorUnusable)
     }
 
     fn swc2(&mut self, instruction: Instruction) {
-        // SWC2
-        unimplemented!("{instruction:?}");
+        unimplemented!("Unhandled GTE SWC: {instruction:?}");
     }
 
-    fn swc3(&mut self, instruction: Instruction) {
-        // SWC3
-        unimplemented!("{instruction:?}");
+    fn swc3(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
+        Err(CpuException::CoprocessorUnusable)
     }
 }
 
