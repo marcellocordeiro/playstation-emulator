@@ -164,7 +164,7 @@ fn one_shot() {
 #[test]
 #[ignore = "manual only"]
 fn with_selection() {
-    let selection = "SHL.json.bin";
+    let selection = "LHU.json.bin";
     let file_path = tests_path().unwrap().join(selection);
 
     let file_name = file_path

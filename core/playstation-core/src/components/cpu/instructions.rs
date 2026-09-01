@@ -107,11 +107,11 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x12 => self.cop2(instruction),
             0x13 => self.cop3(instruction),
             0x20 => self.lb(instruction),
-            0x21 => self.lh(instruction),
+            0x21 => self.lh(instruction)?,
             0x22 => self.lwl(instruction),
             0x23 => self.lw(instruction)?,
             0x24 => self.lbu(instruction),
-            0x25 => self.lhu(instruction),
+            0x25 => self.lhu(instruction)?,
             0x26 => self.lwr(instruction),
             0x28 => self.sb(instruction),
             0x29 => self.sh(instruction)?,
@@ -356,12 +356,26 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         // Load delay slot
         self.regs.set_r_delayed(rt, value as u32);
-        // self.regs.stage_load_delay(rt, value as u32);
     }
 
-    fn lh(&mut self, instruction: Instruction) {
-        // LH
-        unimplemented!("{instruction:?}");
+    /// Load Halfword
+    fn lh(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
+        let imm = instruction.imm_sign_extended();
+        let rt = instruction.rt();
+        let rs = instruction.rs();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+
+        if address % 2 == 0 {
+            let value = self.memory.load_halfword(address) as i16;
+
+            // Load delay slot
+            self.regs.set_r_delayed(rt, value as u32);
+        } else {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        Ok(())
     }
 
     fn lwl(&mut self, instruction: Instruction) {
@@ -414,9 +428,24 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         self.regs.set_r_delayed(rt, value as u32);
     }
 
-    fn lhu(&mut self, instruction: Instruction) {
-        // LHU
-        unimplemented!("{instruction:?}");
+    /// Load Halfword Unsigned
+    fn lhu(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
+        let imm = instruction.imm_sign_extended();
+        let rt = instruction.rt();
+        let rs = instruction.rs();
+
+        let address = self.regs.get_r(rs).wrapping_add(imm);
+
+        if address % 2 == 0 {
+            let value = self.memory.load_halfword(address);
+
+            // Load delay slot
+            self.regs.set_r_delayed(rt, value as u32);
+        } else {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        Ok(())
     }
 
     fn lwr(&mut self, instruction: Instruction) {

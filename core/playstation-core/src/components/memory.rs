@@ -89,7 +89,7 @@ impl MemoryInterface for Memory {
             }
 
             Map::Bios(offset) => self.bios.load(offset),
-            Map::Spu(_) => todo!(),
+            Map::Spu(_) => T::from_u32(0),
             Map::Expansion1(_) => {
                 // stubbed
                 T::stubbed()
@@ -101,6 +101,7 @@ impl MemoryInterface for Memory {
 
             Map::IrqControl(_) => T::stubbed(),
             Map::Timers(_) => T::stubbed(),
+            Map::Dma(_) => T::from_u32(0),
         }
     }
 
@@ -153,6 +154,7 @@ impl MemoryInterface for Memory {
             Map::Expansion2(_) => {}
             Map::IrqControl(_) => {}
             Map::Timers(_) => {}
+            Map::Dma(_) => {}
         }
     }
 }
@@ -214,6 +216,8 @@ mod map {
 
     pub const TIMERS_RANGE: Range = create_range(0x1F80_1100, 48); // ???
 
+    pub const DMA_RANGE: Range = create_range(0x1F80_1080, 0x80);
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Map {
         Ram(u32),
@@ -226,6 +230,7 @@ mod map {
         Expansion2(u32),
         IrqControl(u32),
         Timers(u32),
+        Dma(u32),
     }
 
     pub fn mapped_to(address: u32) -> Option<Map> {
@@ -269,6 +274,10 @@ mod map {
 
         if TIMERS_RANGE.contains(&address) {
             return Some(Map::Timers(address - TIMERS_RANGE.start));
+        }
+
+        if DMA_RANGE.contains(&address) {
+            return Some(Map::Dma(address - DMA_RANGE.start));
         }
 
         None
