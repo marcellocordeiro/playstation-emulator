@@ -120,12 +120,12 @@ impl BranchDelay {
 impl Cycle {
     fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
         let val = reader.read_le_i64()?;
-        let actions = reader.read_le_u32()?;
+        let _actions = reader.read_le_u32()?;
         let addr = reader.read_le_i64()?;
         let sz = reader.read_le_u32()?;
 
         Ok(Self {
-            actions,
+            //actions,
             sz,
             addr,
             val,

@@ -1,5 +1,5 @@
 use std::{
-    fs::{File, OpenOptions, create_dir_all},
+    fs::{self, File, OpenOptions},
     io::{self},
     path::{Path, PathBuf},
 };
@@ -19,7 +19,7 @@ pub struct Test {
     pub cycles: Vec<Cycle>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct State {
     #[serde(rename = "R")]
     pub r: [u32; 32],
@@ -36,28 +36,28 @@ pub struct State {
     pub delay: Delay,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Delay {
     pub load: LoadDelay,
     pub branch: BranchDelay,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LoadDelay {
     pub target: i32,
     pub val: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BranchDelay {
     pub slot: bool,
     pub take: bool,
     pub target: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cycle {
-    pub actions: u32,
+    // pub actions: u32,
     pub sz: u32,
     pub addr: i64,
     pub val: i64,
@@ -105,10 +105,9 @@ fn cache_test<P1: AsRef<Path>, P2: AsRef<Path>>(bin_path: P1, json_path: P2) {
     let bin_path = bin_path.as_ref();
     let json_path = json_path.as_ref();
 
-    //let bin_path = from;
     let test = parse_bin(bin_path).unwrap();
 
-    create_dir_all(json_path.parent().unwrap()).unwrap();
+    fs::create_dir_all(json_path.parent().unwrap()).unwrap();
 
     let file = OpenOptions::new()
         .write(true)

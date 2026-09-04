@@ -34,9 +34,7 @@ impl Instruction {
     ///
     /// Bits 15...0 (16 bits)
     pub fn imm_sign_extended(self) -> u32 {
-        let value = (self.0 & 0xFFFF) as i16;
-
-        value as u32
+        (self.0 & 0xFFFF) as i16 as u32
     }
 
     pub fn imm_jump(self) -> u32 {

@@ -1,35 +1,21 @@
 use std::ffi::OsStr;
 
 use itertools::Itertools as _;
-use sst_r3000::{State, Test, parse_json_with_cache, tests_path};
+use sst_r3000::{Cycle, State, Test, parse_json_with_cache, tests_path};
 
-use crate::components::{
-    cpu::{Cpu, registers::Registers, tests::single_step_tests::test_memory::TestMemory},
-    memory::{MemoryInterface as _, bios::Bios},
+use crate::components::cpu::{
+    Cpu,
+    registers::Registers,
+    tests::single_step_tests::test_memory::TestMemory,
 };
 
 // SHL (from the tests) == SH (Store Halfword)
 
 fn test_cpu(file_name: &str, test: &Test) {
-    let bios = Bios::new_dummy();
-    let mut memory = TestMemory::new(bios);
-
-    memory.store_word(test.opcode_addr, test.opcode);
-
-    for cycle in &test.cycles {
-        let address = cycle.addr as u32;
-        let value = cycle.val as u32;
-
-        if address == test.opcode_addr {
-            assert_eq!(value, test.opcode);
-            continue;
-        }
-
-        memory.store_word(address, value);
-    }
+    let memory = TestMemory::from_opcode_and_cycles(test.opcode_addr, test.opcode, &test.cycles);
     let mut cpu = Cpu::new(memory);
 
-    let initial_regs = Registers::from(test.initial);
+    let initial_regs = Registers::from(test.initial.clone());
 
     cpu.regs = initial_regs;
 
@@ -38,7 +24,8 @@ fn test_cpu(file_name: &str, test: &Test) {
     let actual = State::from(cpu.regs);
     let expected = &test.r#final;
 
-    let diffs = State::diff(&actual, expected);
+    let mut diffs = State::diff(&actual, expected);
+    // diffs.append(&mut Cycle::diff(&cpu.memory.cycles.borrow(), &test.cycles));
 
     assert!(
         diffs.is_empty(),
@@ -159,7 +146,7 @@ fn one_shot() {
 #[test]
 #[ignore = "manual only"]
 fn with_selection() {
-    let selection = "SWL.json.bin";
+    let selection = "LH.json.bin";
     let file_path = tests_path().unwrap().join(selection);
 
     let file_name = file_path
@@ -179,7 +166,7 @@ fn with_selection() {
             test_cpu(&file_name, &test);
         }
     } else {
-        let test = &tests.0[0x03C];
+        let test = &tests.0[0x002];
         println!("Test name: {}", test.name);
         test_cpu(&file_name, test);
     }

@@ -11,16 +11,6 @@ pub struct Cop0 {
     pub epc: u32,
 }
 
-impl Cop0 {
-    pub fn handle_exception(
-        &mut self,
-        exception: CpuException,
-        current_pc: u32,
-        in_delay_slot: bool,
-    ) {
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct StatusRegister {
     pub isolate_cache: bool,

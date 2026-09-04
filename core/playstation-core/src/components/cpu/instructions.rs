@@ -20,7 +20,7 @@ pub enum CpuException {
     CoprocessorUnusable,
     ArithmeticOverflow,
 
-    Other(u32),
+    //Other(u32),
 }
 
 impl CpuException {
@@ -35,7 +35,9 @@ impl CpuException {
             0xB => Self::CoprocessorUnusable,
             0xC => Self::ArithmeticOverflow,
 
-            other => Self::Other(other),
+            _ => Self::Interrupt,
+
+            //other => Self::Other(other),
         }
     }
 
@@ -50,7 +52,7 @@ impl CpuException {
             Self::CoprocessorUnusable => 0xB,
             Self::ArithmeticOverflow => 0xC,
 
-            Self::Other(value) => value,
+            //Self::Other(value) => value,
         }
     }
 }
@@ -61,7 +63,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     pub fn run_instruction(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         //info!("Executing {instruction:?}");
 
-        Ok(match instruction.primary() {
+        match instruction.primary() {
             // Secondary
             0x00 if instruction.secondary() == 0x00 => self.sll(instruction),
             0x00 if instruction.secondary() == 0x02 => self.srl(instruction),
@@ -133,7 +135,9 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             0x3A => self.swc2(instruction),
             0x3B => self.swc3(instruction)?,
             _ => self.illegal(instruction)?,
-        })
+        }
+
+        Ok(())
     }
 
     fn illegal(&self, instruction: Instruction) -> CpuExecutionResult<()> {
@@ -369,17 +373,17 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Load Halfword
     fn lh(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
-        let imm = instruction.imm_sign_extended();
-        let rt = instruction.rt();
         let rs = instruction.rs();
+        let rt = instruction.rt();
+        let imm = instruction.imm_sign_extended();
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
 
         if address % 2 == 0 {
-            let value = self.memory.load_halfword(address) as i16;
+            let value = self.memory.load_halfword(address) as i16 as u32;
 
             // Load delay slot
-            self.regs.set_r_delayed(rt, value as u32);
+            self.regs.set_r_delayed(rt, value);
         } else {
             return Err(CpuException::LoadAddressError);
         }
