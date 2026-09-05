@@ -1,15 +1,15 @@
 use crate::components::memory::addressable::{AccessWidth, Addressable};
 
-const RAM_SIZE: usize = 2 * 1024 * 1024; // 2MB
+pub const SCRATCHPAD_SIZE: usize = 1024;
 
-pub struct Ram {
-    pub data: Box<[u8; RAM_SIZE]>,
+pub struct Scratchpad {
+    pub data: Box<[u8; SCRATCHPAD_SIZE]>,
 }
 
-impl Ram {
+impl Scratchpad {
     #[must_use]
     pub fn new() -> Self {
-        let data = vec![0; RAM_SIZE].try_into().unwrap();
+        let data = vec![0; SCRATCHPAD_SIZE].try_into().unwrap();
 
         Self { data }
     }

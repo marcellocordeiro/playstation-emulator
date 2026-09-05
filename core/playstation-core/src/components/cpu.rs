@@ -1,23 +1,33 @@
-use crate::components::{
-    cpu::{instruction::Instruction, instructions::CpuException, registers::Registers},
-    memory::MemoryInterface,
+use std::time;
+
+use crate::{
+    components::{
+        cpu::{instruction::Instruction, instructions::CpuException, registers::Registers},
+        memory::MemoryInterface,
+    },
+    psx_executable::PsxExecutable,
 };
 
 pub struct Cpu<Mem: MemoryInterface> {
-    regs: Registers,
-    memory: Mem,
+    pub regs: Registers,
+    pub memory: Mem,
 }
 
 impl<Mem: MemoryInterface> Cpu<Mem> {
+    #[must_use]
     pub fn new(memory: Mem) -> Self {
-        let mut regs = Registers::default();
-        regs.pc = 0xBFC0_0000; // Beginning of the bios
+        let regs = Registers {
+            pc: 0xBFC0_0000, // Beginning of the bios
+            ..Default::default()
+        };
 
         Self { regs, memory }
     }
 
     pub fn run_next_instruction(&mut self) {
         let current_pc = self.regs.pc;
+
+        self.check_for_tty_output();
 
         let (next_pc, in_delay_slot) = match self.regs.delayed_branch.take() {
             Some((address, true)) => (address, true),
@@ -32,7 +42,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
             return;
         }
 
-        let instruction = Instruction(self.load_word(current_pc));
+        let instruction = self.fetch_instruction(current_pc);
 
         self.regs.pc = next_pc;
 
@@ -64,13 +74,9 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         self.regs.pc = handler;
     }
 
-    fn load_word(&self, address: u32) -> u32 {
-        self.memory.load_word(address)
-    }
-
     fn branch(&mut self, offset: u32, take: bool) {
-        // PC is always aligned to 32 bits
-        let offset = offset << 2;
+        // // PC is always aligned to 32 bits
+        // let offset = offset << 2;
         let address = self.regs.pc.wrapping_add(offset);
 
         self.regs.delayed_branch = Some((address, take));
@@ -79,12 +85,41 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn jump(&mut self, address: u32) {
         self.regs.delayed_branch = Some((address, true));
     }
+
+    fn fetch_instruction(&self, address: u32) -> Instruction {
+        Instruction(self.memory.fetch_instruction(address))
+    }
+
+    // Testing
+
+    fn check_for_tty_output(&self) {
+        let pc = self.regs.pc & 0x1FFF_FFFF;
+
+        if (pc == 0xA0 && self.regs.r[9] == 0x3C) || (pc == 0xB0 && self.regs.r[9] == 0x3D) {
+            let ch = self.regs.r[4] as u8 as char;
+            print!("{ch}");
+        }
+    }
+
+    pub fn sideload_amidogs(&mut self) {
+        let exe = include_bytes!("../../../../roms/psxtest_cpu.exe");
+
+        // Wait for the BIOS to jump to the shell
+        while self.regs.pc != 0x8003_0000 {
+            self.run_next_instruction();
+        }
+
+        PsxExecutable::apply(exe, &mut self.regs, self.memory.ram_mut());
+
+        std::thread::sleep(time::Duration::from_secs(1));
+    }
 }
 
 mod cop0;
-mod instruction;
+pub mod decoded_instruction;
+pub mod instruction;
 mod instructions;
-mod registers;
+pub mod registers;
 
 #[cfg(test)]
 mod tests;

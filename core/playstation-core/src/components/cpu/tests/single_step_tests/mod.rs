@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 
 use itertools::Itertools as _;
-use sst_r3000::{Cycle, State, Test, parse_json_with_cache, tests_path};
+use sst_r3000::{State, Test, parse_json_with_cache, tests_path};
 
 use crate::components::cpu::{
     Cpu,
@@ -24,7 +24,7 @@ fn test_cpu(file_name: &str, test: &Test) {
     let actual = State::from(cpu.regs);
     let expected = &test.r#final;
 
-    let mut diffs = State::diff(&actual, expected);
+    let diffs = State::diff(&actual, expected);
     // diffs.append(&mut Cycle::diff(&cpu.memory.cycles.borrow(), &test.cycles));
 
     assert!(
@@ -146,7 +146,7 @@ fn one_shot() {
 #[test]
 #[ignore = "manual only"]
 fn with_selection() {
-    let selection = "LH.json.bin";
+    let selection = "LWL.json.bin";
     let file_path = tests_path().unwrap().join(selection);
 
     let file_name = file_path

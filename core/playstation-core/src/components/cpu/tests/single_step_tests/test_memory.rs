@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use sst_r3000::Cycle;
+use sst_r3000::{Cycle, CycleAction};
 
 use crate::components::{
     cpu::tests::single_step_tests::test_ram::TestRam,
@@ -20,17 +20,81 @@ impl MemoryInterface for TestMemory {
     }
 
     fn load<T: Addressable>(&self, address: u32) -> T {
-        let value = self.ram.load(address);
+        if address % (T::width() as u32) != 0 {
+            panic!("Unaligned access not supported");
+        }
 
-        self.push_read_cycle::<T>(address);
+        self.ram.load(address)
+    }
+
+    fn store<T: Addressable>(&mut self, address: u32, value: T) {
+        if address % (T::width() as u32) != 0 {
+            panic!("Unaligned access not supported");
+        }
+
+        self.ram.store(address, value);
+    }
+
+    // Loads
+
+    fn fetch_instruction(&self, address: u32) -> u32 {
+        let value = self.load(address);
+
+        self.push_cycle(address, value, CycleAction::Fetch);
 
         value
     }
 
-    fn store<T: Addressable>(&mut self, address: u32, value: T) {
-        self.push_cycle(address, value);
+    fn load_byte(&self, address: u32) -> u8 {
+        let value = self.load(address);
 
-        self.ram.store(address, value);
+        self.push_cycle(address, value, CycleAction::Read);
+
+        value
+    }
+
+    fn load_halfword(&self, address: u32) -> u16 {
+        let value = self.load(address);
+
+        self.push_cycle(address, value, CycleAction::Read);
+
+        value
+    }
+
+    fn load_word(&self, address: u32) -> u32 {
+        let value = self.load(address);
+
+        self.push_cycle(address, value, CycleAction::Read);
+
+        value
+    }
+
+    // Stores
+
+    fn store_byte(&mut self, address: u32, value: u8) {
+        self.store(address, value);
+
+        self.push_cycle(address, value, CycleAction::Write);
+    }
+
+    fn store_halfword(&mut self, address: u32, value: u16) {
+        self.store(address, value);
+
+        self.push_cycle(address, value, CycleAction::Write);
+    }
+
+    fn store_word(&mut self, address: u32, value: u32) {
+        self.store(address, value);
+
+        self.push_cycle(address, value, CycleAction::Write);
+    }
+
+    fn ram(&self) -> &[u8] {
+        unimplemented!();
+    }
+
+    fn ram_mut(&mut self) -> &mut [u8] {
+        unimplemented!();
     }
 }
 
@@ -59,37 +123,21 @@ impl TestMemory {
             ram.store_word(address, value);
         }
 
-        Self { ram, ..Default::default() }
+        Self {
+            ram,
+            ..Default::default()
+        }
     }
 
-    fn push_read_cycle<T: Addressable>(&self, address: u32) {
-        let aligned_value: u32 = self.ram.load(address & !0b11);
-
-        let size = T::width() as u32;
-
-        // let actions = size;
-        let sz = size;
-        let addr = address as i64;
-        let val = aligned_value as i64;
-
-        self.cycles.borrow_mut().push(Cycle {
-            // actions,
-            sz,
-            addr,
-            val,
-        });
-    }
-
-    fn push_cycle<T: Addressable>(&self, address: u32, value: T) {
-        let size = T::width() as u32;
-
-        // let actions = size;
-        let sz = size;
+    /// TODO
+    fn push_cycle<T: Addressable>(&self, address: u32, value: T, action: CycleAction) {
+        let actions = action;
+        let sz = T::width() as u32;
         let addr = address as i64;
         let val = value.as_u32() as i64;
 
         self.cycles.borrow_mut().push(Cycle {
-            // actions,
+            actions,
             sz,
             addr,
             val,

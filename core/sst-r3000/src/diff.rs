@@ -67,11 +67,12 @@ impl State {
 }
 
 impl Cycle {
+    #[must_use]
     pub fn diff(actual: &Vec<Self>, expected: &Vec<Self>) -> Vec<Diff> {
-        if actual != expected {
-            vec![Diff::Cycles(actual.clone(), expected.clone())]
-        } else {
+        if actual == expected {
             vec![]
+        } else {
+            vec![Diff::Cycles(actual.clone(), expected.clone())]
         }
     }
 }

@@ -33,11 +33,13 @@ pub struct Registers {
 }
 
 impl Registers {
+    #[must_use]
     pub fn get_r(&self, index: RegisterIndex) -> u32 {
         self.r[index.0 as usize]
     }
 
     /// For LWL and LWR
+    #[must_use]
     pub fn get_r_with_delayed_load(&self, index: RegisterIndex) -> u32 {
         if let Some((slot_index, value)) = self.delayed_load
             && (slot_index == index)

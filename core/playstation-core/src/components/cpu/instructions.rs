@@ -1,4 +1,4 @@
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::components::{
     cpu::{
@@ -19,7 +19,6 @@ pub enum CpuException {
     ReservedInstruction,
     CoprocessorUnusable,
     ArithmeticOverflow,
-
     //Other(u32),
 }
 
@@ -36,7 +35,6 @@ impl CpuException {
             0xC => Self::ArithmeticOverflow,
 
             _ => Self::Interrupt,
-
             //other => Self::Other(other),
         }
     }
@@ -51,7 +49,6 @@ impl CpuException {
             Self::ReservedInstruction => 0xA,
             Self::CoprocessorUnusable => 0xB,
             Self::ArithmeticOverflow => 0xC,
-
             //Self::Other(value) => value,
         }
     }
@@ -169,10 +166,12 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Jump
+    ///
+    /// j
     fn j(&mut self, instruction: Instruction) {
-        let imm = instruction.imm_jump();
+        let target = instruction.jump_target();
 
-        let address = (self.regs.pc & 0xF000_0000) | imm;
+        let address = (self.regs.pc & 0xF000_0000) | target;
 
         self.jump(address);
     }
@@ -189,7 +188,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Equal
     fn beq(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
         let rt = instruction.rt();
 
@@ -200,7 +199,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Not Equal
     fn bne(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
         let rt = instruction.rt();
 
@@ -211,7 +210,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Less than or Equal to Zero
     fn blez(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
 
         let s = self.regs.get_r(rs) as i32;
@@ -223,7 +222,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Greater than Zero
     fn bgtz(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
 
         let s = self.regs.get_r(rs) as i32;
@@ -356,16 +355,16 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn lb(&mut self, instruction: Instruction) {
         if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
-            info!("Ignoring store while cache is isolated");
+            // info!("Ignoring store while cache is isolated");
             return;
         }
 
-        let imm = instruction.imm_sign_extended();
+        let offset = instruction.imm_sign_extended();
         let rt = instruction.rt();
         let rs = instruction.rs();
 
-        let address = self.regs.get_r(rs).wrapping_add(imm);
-        let value = self.memory.load_byte(address) as i8;
+        let address = self.regs.get_r(rs).wrapping_add(offset);
+        let value = self.load_byte(address) as i8;
 
         // Load delay slot
         self.regs.set_r_delayed(rt, value as u32);
@@ -375,18 +374,14 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn lh(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         let rs = instruction.rs();
         let rt = instruction.rt();
-        let imm = instruction.imm_sign_extended();
+        let offset = instruction.imm_sign_extended();
 
-        let address = self.regs.get_r(rs).wrapping_add(imm);
+        let address = self.regs.get_r(rs).wrapping_add(offset);
 
-        if address % 2 == 0 {
-            let value = self.memory.load_halfword(address) as i16 as u32;
+        let value = self.checked_load_halfword(address)? as i16 as u32;
 
-            // Load delay slot
-            self.regs.set_r_delayed(rt, value);
-        } else {
-            return Err(CpuException::LoadAddressError);
-        }
+        // Load delay slot
+        self.regs.set_r_delayed(rt, value);
 
         Ok(())
     }
@@ -416,7 +411,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn lw(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
-            info!("Ignoring store while cache is isolated");
+            // info!("Ignoring store while cache is isolated");
             return Ok(());
         }
 
@@ -426,14 +421,10 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
 
-        if address % 4 == 0 {
-            let value = self.load_word(address);
+        let value = self.checked_load_word(address)?;
 
-            // Load delay slot
-            self.regs.set_r_delayed(rt, value);
-        } else {
-            return Err(CpuException::LoadAddressError);
-        }
+        // Load delay slot
+        self.regs.set_r_delayed(rt, value);
 
         Ok(())
     }
@@ -442,7 +433,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn lbu(&mut self, instruction: Instruction) {
         if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
-            info!("Ignoring store while cache is isolated");
+            // info!("Ignoring store while cache is isolated");
             return;
         }
 
@@ -451,7 +442,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
-        let value = self.memory.load_byte(address);
+        let value = self.load_byte(address);
 
         // Load delay slot
         self.regs.set_r_delayed(rt, value as u32);
@@ -465,14 +456,10 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
 
-        if address % 2 == 0 {
-            let value = self.memory.load_halfword(address);
+        let value = self.checked_load_halfword(address)?;
 
-            // Load delay slot
-            self.regs.set_r_delayed(rt, value as u32);
-        } else {
-            return Err(CpuException::LoadAddressError);
-        }
+        // Load delay slot
+        self.regs.set_r_delayed(rt, value as u32);
 
         Ok(())
     }
@@ -502,7 +489,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn sb(&mut self, instruction: Instruction) {
         if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
-            info!("Ignoring store while cache is isolated");
+            // info!("Ignoring store while cache is isolated");
             return;
         }
 
@@ -513,14 +500,14 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let address = self.regs.get_r(rs).wrapping_add(imm);
         let value = self.regs.get_r(rt) as u8;
 
-        self.memory.store_byte(address, value);
+        self.store_byte(address, value);
     }
 
     /// Store Halfword
     fn sh(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
-            info!("Ignoring store while cache is isolated");
+            // info!("Ignoring store while cache is isolated");
             return Ok(());
         }
 
@@ -530,13 +517,9 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
 
-        if address % 2 == 0 {
-            let value = self.regs.get_r(rt) as u16;
+        let value = self.regs.get_r(rt) as u16;
 
-            self.memory.store_halfword(address, value);
-        } else {
-            return Err(CpuException::StoreAddressError);
-        }
+        self.checked_store_halfword(address, value)?;
 
         Ok(())
     }
@@ -558,14 +541,14 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let result = (current_value & !mask) | (aligned_word << shift);
 
-        self.memory.store_word(aligned_address, result);
+        self.store_word(aligned_address, result);
     }
 
     /// Store Word
     fn sw(&mut self, instruction: Instruction) -> CpuExecutionResult<()> {
         if self.regs.cop0.sr.isolate_cache {
             // Cache is isolated, ignore writes
-            info!("Ignoring store while cache is isolated");
+            debug!("Ignoring store while cache is isolated");
             return Ok(());
         }
 
@@ -574,14 +557,9 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let rs = instruction.rs();
 
         let address = self.regs.get_r(rs).wrapping_add(imm);
+        let value = self.regs.get_r(rt);
 
-        if address % 4 == 0 {
-            let value = self.regs.get_r(rt);
-
-            self.memory.store_word(address, value);
-        } else {
-            return Err(CpuException::StoreAddressError);
-        }
+        self.checked_store_word(address, value)?;
 
         Ok(())
     }
@@ -604,7 +582,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         let result = (current_value & !mask) | (aligned_word >> shift);
 
-        self.memory.store_word(aligned_address, result);
+        self.store_word(aligned_address, result);
     }
 
     fn lwc0(&mut self, _instruction: Instruction) -> CpuExecutionResult<()> {
@@ -718,9 +696,9 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     fn jr(&mut self, instruction: Instruction) {
         let rs = instruction.rs();
 
-        let value = self.regs.get_r(rs);
+        let address = self.regs.get_r(rs);
 
-        self.jump(value);
+        self.jump(address);
     }
 
     /// Jump And Link Register
@@ -732,8 +710,8 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
         // Jump
         // Need to fetch $(rs) first in case the link writes to it
-        let value = self.regs.get_r(rs);
-        self.jump(value);
+        let address = self.regs.get_r(rs);
+        self.jump(address);
 
         // Link
         self.regs.set_r(rd, ra);
@@ -766,6 +744,8 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     /// Move From LO
+    ///
+    /// mflo rd
     fn mflo(&mut self, instruction: Instruction) {
         let rd = instruction.rd();
 
@@ -978,7 +958,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Less Than Zero
     fn bltz(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
 
         let s = self.regs.get_r(rs) as i32;
@@ -990,7 +970,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Greater than or Equal to Zero
     fn bgez(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
 
         let s = self.regs.get_r(rs) as i32;
@@ -1002,7 +982,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Less Than Zero And Link
     fn bltzal(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
 
         let s = self.regs.get_r(rs) as i32;
@@ -1017,7 +997,7 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
     /// Branch if Greater than or Equal to Zero And Link
     fn bgezal(&mut self, instruction: Instruction) {
-        let offset = instruction.imm_sign_extended();
+        let offset = instruction.branch_offset();
         let rs = instruction.rs();
 
         let s = self.regs.get_r(rs) as i32;
@@ -1040,12 +1020,16 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let cop_r = instruction.rd().0;
 
         let value = match cop_r {
+            3 | 5 | 6 | 7 | 9 | 11 | 15 => 0,
+
+            8 => self.regs.cop0.bad_v_addr,
             12 => self.regs.cop0.sr.read(),
             13 => self.regs.cop0.cause.read(),
             14 => self.regs.cop0.epc,
 
-            _ => {
-                todo!("Unhandled read from COP0");
+            // 15 => 0,
+            value => {
+                todo!("Unhandled read from COP0: {value}");
             }
         };
 
@@ -1066,11 +1050,11 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
 
             12 => self.regs.cop0.sr.write(value),
 
-            13 => {
-                // CAUSE
-                assert!(value == 0, "unhandled write to COP0");
-            }
-
+            13 => self.regs.cop0.cause.write(value),
+            // 13 => {
+            //     // CAUSE
+            //     assert!(value == 0, "unhandled write to COP0");
+            // }
             nn => unimplemented!("Unimplemented COP0 register: {nn}"),
         }
     }
@@ -1083,5 +1067,68 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         let mode = self.regs.cop0.sr.raw & 0x3F;
         self.regs.cop0.sr.raw &= !0x3F;
         self.regs.cop0.sr.raw |= mode >> 2;
+    }
+}
+
+/// Load/Store helpers
+impl<Mem: MemoryInterface> Cpu<Mem> {
+    fn load_byte(&self, address: u32) -> u8 {
+        self.memory.load_byte(address)
+    }
+
+    fn load_halfword(&self, address: u32) -> u16 {
+        self.memory.load_halfword(address)
+    }
+
+    fn load_word(&self, address: u32) -> u32 {
+        self.memory.load_word(address)
+    }
+
+    fn checked_load_halfword(&self, address: u32) -> Result<u16, CpuException> {
+        if address % 2 != 0 {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        Ok(self.load_halfword(address))
+    }
+
+    fn checked_load_word(&self, address: u32) -> Result<u32, CpuException> {
+        if address % 4 != 0 {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        Ok(self.load_word(address))
+    }
+
+    fn store_byte(&mut self, address: u32, value: u8) {
+        self.memory.store_byte(address, value);
+    }
+
+    fn store_halfword(&mut self, address: u32, value: u16) {
+        self.memory.store_halfword(address, value);
+    }
+
+    fn store_word(&mut self, address: u32, value: u32) {
+        self.memory.store_word(address, value);
+    }
+
+    fn checked_store_halfword(&mut self, address: u32, value: u16) -> Result<(), CpuException> {
+        if address % 2 != 0 {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        self.store_halfword(address, value);
+
+        Ok(())
+    }
+
+    fn checked_store_word(&mut self, address: u32, value: u32) -> Result<(), CpuException> {
+        if address % 4 != 0 {
+            return Err(CpuException::LoadAddressError);
+        }
+
+        self.store_word(address, value);
+
+        Ok(())
     }
 }

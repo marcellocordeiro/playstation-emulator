@@ -3,12 +3,14 @@ use tracing::info;
 use crate::components::memory::{
     addressable::Addressable,
     bios::Bios,
-    map::{Map, mapped_to, mask_region},
+    map::{Map, mapped_to, with_masked_region},
     ram::Ram,
+    scratchpad::Scratchpad,
 };
 
 pub struct Memory {
     ram: Ram,
+    scratchpad: Scratchpad,
     bios: Bios,
 }
 
@@ -17,6 +19,10 @@ pub trait MemoryInterface {
 
     fn load<T: Addressable>(&self, address: u32) -> T;
     fn store<T: Addressable>(&mut self, address: u32, value: T);
+
+    fn fetch_instruction(&self, address: u32) -> u32 {
+        self.load(address)
+    }
 
     fn load_word(&self, address: u32) -> u32 {
         self.load(address)
@@ -41,12 +47,17 @@ pub trait MemoryInterface {
     fn store_byte(&mut self, address: u32, value: u8) {
         self.store(address, value);
     }
+
+    fn ram(&self) -> &[u8];
+
+    fn ram_mut(&mut self) -> &mut [u8];
 }
 
 impl MemoryInterface for Memory {
     fn new(bios: Bios) -> Self {
         Self {
             ram: Ram::new(),
+            scratchpad: Scratchpad::new(),
             bios,
         }
     }
@@ -59,7 +70,7 @@ impl MemoryInterface for Memory {
         let Some(map) = mapped_to(address) else {
             panic!(
                 "Invalid or unimplemented map for {address:#08X} (resolved to: {resolved:#08X})",
-                resolved = mask_region(address)
+                resolved = with_masked_region(address)
             );
         };
 
@@ -67,7 +78,7 @@ impl MemoryInterface for Memory {
             Map::SysControl(offset) => {
                 match offset {
                     _ => {
-                        info!("Unhandled read to MEM_CONTROL");
+                        // info!("Unhandled read to MEM_CONTROL");
 
                         T::stubbed()
                     }
@@ -75,7 +86,7 @@ impl MemoryInterface for Memory {
             }
 
             Map::RamSize(_) => {
-                info!("Unhandled read to RAM_SIZE");
+                // info!("Unhandled read to RAM_SIZE");
 
                 T::stubbed()
             }
@@ -83,25 +94,21 @@ impl MemoryInterface for Memory {
             Map::Ram(offset) => self.ram.load(offset),
 
             Map::CacheControl(_) => {
-                info!("Unhandled read to CACHE_CONTROL_RANGE");
+                // info!("Unhandled read to CACHE_CONTROL_RANGE");
 
                 T::stubbed()
             }
 
             Map::Bios(offset) => self.bios.load(offset),
             Map::Spu(_) => T::from_u32(0),
-            Map::Expansion1(_) => {
-                // stubbed
-                T::stubbed()
-            }
-            Map::Expansion2(_) => {
-                // stubbed
-                T::stubbed()
-            }
+            Map::Expansion1(_) => T::from_u32(0),
+            Map::Expansion2(_) => T::from_u32(0),
 
             Map::IrqControl(_) => T::stubbed(),
             Map::Timers(_) => T::stubbed(),
             Map::Dma(_) => T::from_u32(0),
+            Map::Scratchpad(offset) => self.scratchpad.load(offset),
+            Map::Gpu(_) => T::stubbed(),
         }
     }
 
@@ -113,7 +120,7 @@ impl MemoryInterface for Memory {
         let Some(map) = mapped_to(address) else {
             panic!(
                 "Invalid or unimplemented map for {:08X}",
-                mask_region(address)
+                with_masked_region(address)
             );
         };
 
@@ -133,19 +140,19 @@ impl MemoryInterface for Memory {
                     }
 
                     _ => {
-                        info!("Unhandled write to MEM_CONTROL");
+                        // info!("Unhandled write to MEM_CONTROL");
                     }
                 }
             }
 
             Map::RamSize(_) => {
-                info!("Unhandled write to RAM_SIZE");
+                // info!("Unhandled write to RAM_SIZE");
             }
 
             Map::Ram(offset) => self.ram.store(offset, value),
 
             Map::CacheControl(_) => {
-                info!("Unhandled write to CACHE_CONTROL_RANGE");
+                // info!("Unhandled write to CACHE_CONTROL_RANGE");
             }
 
             Map::Bios(_) => (),
@@ -155,7 +162,17 @@ impl MemoryInterface for Memory {
             Map::IrqControl(_) => {}
             Map::Timers(_) => {}
             Map::Dma(_) => {}
+            Map::Scratchpad(offset) => self.scratchpad.store(offset, value),
+            Map::Gpu(_) => {}
         }
+    }
+
+    fn ram(&self) -> &[u8] {
+        self.ram.data.as_slice()
+    }
+
+    fn ram_mut(&mut self) -> &mut [u8] {
+        self.ram.data.as_mut_slice()
     }
 }
 
@@ -180,22 +197,17 @@ mod map {
         }
     }
 
-    #[rustfmt::skip]
-    const REGION_MASK: [u32; 8] = [
-        // KUSEG: 2048MB
-        0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
-        //KSEG0: 512MB
-        0x7FFFFFFF,
-        //KSEG1: 512MB
-        0x1FFFFFFF,
-        // KSEG2: 1024MB
-        0xFFFFFFFF, 0xFFFFFFFF,
-    ];
+    pub fn with_masked_region(address: u32) -> u32 {
+        let mask = match address >> 29 {
+            0b000..=0b011 => 0xFFFF_FFFF, // KUSEG: 2048MB
+            0b100 => 0x7FFF_FFFF,         // KSEG0: 512Mb
+            0b101 => 0x1FFF_FFFF,         // KSEG1: 512MB
+            0b110..=0b111 => 0xFFFF_FFFF, // KSEG2: 1024MB
 
-    pub fn mask_region(address: u32) -> u32 {
-        let index = (address >> 29) as usize;
+            _ => unreachable!(),
+        };
 
-        address & REGION_MASK[index]
+        address & mask
     }
 
     pub const RAM_RANGE: Range = create_range(0x0000_0000, 2 * 1024 * 1024);
@@ -218,9 +230,14 @@ mod map {
 
     pub const DMA_RANGE: Range = create_range(0x1F80_1080, 0x80);
 
+    pub const SCRATCHPAD_RANGE: Range = create_range(0x1F80_0000, 0x400);
+
+    pub const GPU_RANGE: Range = create_range(0x1F80_1810, 0x1F80_1818 - 0x1F80_1810 + 1);
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Map {
         Ram(u32),
+        Scratchpad(u32),
         Bios(u32),
         SysControl(u32),
         RamSize(u32),
@@ -231,10 +248,11 @@ mod map {
         IrqControl(u32),
         Timers(u32),
         Dma(u32),
+        Gpu(u32),
     }
 
     pub fn mapped_to(address: u32) -> Option<Map> {
-        let address = mask_region(address);
+        let address = with_masked_region(address);
 
         if RAM_RANGE.contains(&address) {
             return Some(Map::Ram(address - RAM_RANGE.start));
@@ -280,12 +298,21 @@ mod map {
             return Some(Map::Dma(address - DMA_RANGE.start));
         }
 
+        if SCRATCHPAD_RANGE.contains(&address) {
+            return Some(Map::Scratchpad(address - SCRATCHPAD_RANGE.start));
+        }
+
+        if GPU_RANGE.contains(&address) {
+            return Some(Map::Gpu(address - GPU_RANGE.start));
+        }
+
         None
     }
 }
 
 pub mod bios;
 mod ram;
+mod scratchpad;
 
 pub mod addressable {
     use num::PrimInt;

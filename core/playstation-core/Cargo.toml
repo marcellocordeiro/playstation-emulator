@@ -9,12 +9,13 @@ workspace = true
 [features]
 
 [dependencies]
+hex = { workspace = true }
 itertools = { workspace = true }
+md-5 = { workspace = true }
+num = { workspace = true }
+strum = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-md-5 = { workspace = true }
-hex = { workspace = true }
-num = { workspace = true }
 
 [dev-dependencies]
 itertools = { workspace = true }

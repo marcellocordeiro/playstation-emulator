@@ -5,6 +5,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tests(pub Vec<Test>);
@@ -55,9 +56,18 @@ pub struct BranchDelay {
     pub target: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u32)]
+pub enum CycleAction {
+    NoAction = 0,
+    Read = 1,
+    Write = 2,
+    Fetch = 4,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cycle {
-    // pub actions: u32,
+    pub actions: CycleAction,
     pub sz: u32,
     pub addr: i64,
     pub val: i64,

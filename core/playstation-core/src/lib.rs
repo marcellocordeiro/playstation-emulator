@@ -31,5 +31,6 @@ impl PlayStation {
     pub fn run_frame(&mut self) {}
 }
 
-mod components;
+pub mod components;
 pub mod constants;
+mod psx_executable;

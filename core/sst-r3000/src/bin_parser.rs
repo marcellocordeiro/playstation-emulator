@@ -1,6 +1,16 @@
 use std::io::{self, Read};
 
-use crate::{BranchDelay, Cycle, Delay, LoadDelay, State, Test, Tests, traits::ReadBytesExt as _};
+use crate::{
+    BranchDelay,
+    Cycle,
+    CycleAction,
+    Delay,
+    LoadDelay,
+    State,
+    Test,
+    Tests,
+    traits::ReadBytesExt as _,
+};
 
 impl Tests {
     pub fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
@@ -117,15 +127,38 @@ impl BranchDelay {
     }
 }
 
+impl TryFrom<u32> for CycleAction {
+    type Error = &'static str;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => Self::NoAction,
+            1 => Self::Read,
+            2 => Self::Write,
+            4 => Self::Fetch,
+
+            _ => return Err("invalid flag"),
+        })
+    }
+}
+
+impl CycleAction {
+    fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
+        let raw = reader.read_le_u32()?;
+
+        Ok(Self::try_from(raw).unwrap())
+    }
+}
+
 impl Cycle {
     fn from_reader<R: Read>(reader: &mut R) -> io::Result<Self> {
         let val = reader.read_le_i64()?;
-        let _actions = reader.read_le_u32()?;
+        let actions = CycleAction::from_reader(reader)?;
         let addr = reader.read_le_i64()?;
         let sz = reader.read_le_u32()?;
 
         Ok(Self {
-            //actions,
+            actions,
             sz,
             addr,
             val,

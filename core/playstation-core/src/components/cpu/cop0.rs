@@ -3,6 +3,8 @@ use crate::components::cpu::instructions::CpuException;
 /// Coprocessor 0: System Control Processor
 #[derive(Debug, Default)]
 pub struct Cop0 {
+    /// COP0 register 8: Bad Virtual Address
+    pub bad_v_addr: u32,
     /// COP0 register 12: Status Register
     pub sr: StatusRegister,
     /// COP0 register 13: Cause Register

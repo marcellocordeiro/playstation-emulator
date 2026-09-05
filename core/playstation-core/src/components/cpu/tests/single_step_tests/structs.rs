@@ -39,7 +39,12 @@ impl From<State> for Registers {
             let sr = StatusRegister::default();
             let cause = CauseRegister::from(cause);
 
-            Cop0 { sr, cause, epc }
+            Cop0 {
+                bad_v_addr: 0,
+                sr,
+                cause,
+                epc,
+            }
         };
 
         Self {
@@ -68,7 +73,12 @@ impl From<Registers> for State {
             cop0,
         } = value;
 
-        let Cop0 { sr: _, cause, epc } = cop0;
+        let Cop0 {
+            bad_v_addr: _,
+            sr: _,
+            cause,
+            epc,
+        } = cop0;
         let cause = cause.read();
 
         let load = {
