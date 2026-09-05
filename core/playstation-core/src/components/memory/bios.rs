@@ -29,7 +29,7 @@ impl Bios {
 
     #[must_use]
     pub fn new_dummy() -> Self {
-        let data = vec![0_u8; BIOS_SIZE].into_boxed_slice().try_into().unwrap();
+        let data = vec![0_u8; BIOS_SIZE].try_into().unwrap();
         Self {
             data,
             metadata: &SUPPORTED_BIOS[0],
@@ -42,14 +42,6 @@ impl Bios {
             AccessWidth::Byte => T::from_u32(self.load_byte(offset) as u32),
             AccessWidth::Halfword => T::from_u32(self.load_halfword(offset) as u32),
             AccessWidth::Word => T::from_u32(self.load_word(offset)),
-        }
-    }
-
-    pub fn store<T: Addressable>(&mut self, offset: u32, value: T) {
-        match T::width() {
-            AccessWidth::Byte => self.store_byte(offset, value.as_u8()),
-            AccessWidth::Halfword => self.store_halfword(offset, value.as_u16()),
-            AccessWidth::Word => self.store_word(offset, value.as_u32()),
         }
     }
 
@@ -77,24 +69,6 @@ impl Bios {
         let offset = offset as usize;
 
         self.data[offset]
-    }
-
-    pub fn store_word(&mut self, offset: u32, value: u32) {
-        let offset = offset as usize;
-
-        self.data[offset..(offset + 4)].copy_from_slice(&value.to_le_bytes());
-    }
-
-    pub fn store_halfword(&mut self, offset: u32, value: u16) {
-        let offset = offset as usize;
-
-        self.data[offset..(offset + 2)].copy_from_slice(&value.to_le_bytes());
-    }
-
-    pub fn store_byte(&mut self, offset: u32, value: u8) {
-        let offset = offset as usize;
-
-        self.data[offset] = value;
     }
 }
 

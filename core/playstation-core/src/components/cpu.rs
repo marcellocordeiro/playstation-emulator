@@ -75,8 +75,6 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
     }
 
     fn branch(&mut self, offset: u32, take: bool) {
-        // // PC is always aligned to 32 bits
-        // let offset = offset << 2;
         let address = self.regs.pc.wrapping_add(offset);
 
         self.regs.delayed_branch = Some((address, take));

@@ -385,173 +385,183 @@ impl DecodedInstruction {
     #[must_use]
     pub fn decode(instruction: Instruction) -> Self {
         match instruction.primary() {
-            0x00 if instruction.secondary() == 0x00 => {
-                Self::Sll {
-                    rd: instruction.rd(),
-                    rt: instruction.rt(),
-                    shamt: instruction.shift_imm(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x02 => {
-                Self::Srl {
-                    rd: instruction.rd(),
-                    rt: instruction.rt(),
-                    shamt: instruction.shift_imm(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x03 => {
-                Self::Sra {
-                    rd: instruction.rd(),
-                    rt: instruction.rt(),
-                    shamt: instruction.shift_imm(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x04 => {
-                Self::Sllv {
-                    rd: instruction.rd(),
-                    rt: instruction.rt(),
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x06 => {
-                Self::Srlv {
-                    rd: instruction.rd(),
-                    rt: instruction.rt(),
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x07 => {
-                Self::Srav {
-                    rd: instruction.rd(),
-                    rt: instruction.rt(),
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x08 => {
-                Self::Jr {
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x09 => {
-                Self::Jalr {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x0C => Self::Syscall,
-            0x00 if instruction.secondary() == 0x0D => Self::Break,
-            0x00 if instruction.secondary() == 0x10 => {
-                Self::Mfhi {
-                    rd: instruction.rd(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x11 => {
-                Self::Mthi {
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x12 => {
-                Self::Mflo {
-                    rd: instruction.rd(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x13 => {
-                Self::Mtlo {
-                    rs: instruction.rs(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x18 => {
-                Self::Mult {
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x19 => {
-                Self::Multu {
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x1A => {
-                Self::Div {
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x1B => {
-                Self::Divu {
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x20 => {
-                Self::Add {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x21 => {
-                Self::Addu {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x22 => {
-                Self::Sub {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x23 => {
-                Self::Subu {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x24 => {
-                Self::And {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x25 => {
-                Self::Or {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x26 => {
-                Self::Xor {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x27 => {
-                Self::Nor {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x2A => {
-                Self::Slt {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
-                }
-            }
-            0x00 if instruction.secondary() == 0x2B => {
-                Self::Sltu {
-                    rd: instruction.rd(),
-                    rs: instruction.rs(),
-                    rt: instruction.rt(),
+            0x00 => {
+                match instruction.secondary() {
+                    0x00 => {
+                        Self::Sll {
+                            rd: instruction.rd(),
+                            rt: instruction.rt(),
+                            shamt: instruction.shift_imm(),
+                        }
+                    }
+                    0x02 => {
+                        Self::Srl {
+                            rd: instruction.rd(),
+                            rt: instruction.rt(),
+                            shamt: instruction.shift_imm(),
+                        }
+                    }
+                    0x03 => {
+                        Self::Sra {
+                            rd: instruction.rd(),
+                            rt: instruction.rt(),
+                            shamt: instruction.shift_imm(),
+                        }
+                    }
+                    0x04 => {
+                        Self::Sllv {
+                            rd: instruction.rd(),
+                            rt: instruction.rt(),
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x06 => {
+                        Self::Srlv {
+                            rd: instruction.rd(),
+                            rt: instruction.rt(),
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x07 => {
+                        Self::Srav {
+                            rd: instruction.rd(),
+                            rt: instruction.rt(),
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x08 => {
+                        Self::Jr {
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x09 => {
+                        Self::Jalr {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x0C => Self::Syscall,
+                    0x0D => Self::Break,
+                    0x10 => {
+                        Self::Mfhi {
+                            rd: instruction.rd(),
+                        }
+                    }
+                    0x11 => {
+                        Self::Mthi {
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x12 => {
+                        Self::Mflo {
+                            rd: instruction.rd(),
+                        }
+                    }
+                    0x13 => {
+                        Self::Mtlo {
+                            rs: instruction.rs(),
+                        }
+                    }
+                    0x18 => {
+                        Self::Mult {
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x19 => {
+                        Self::Multu {
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x1A => {
+                        Self::Div {
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x1B => {
+                        Self::Divu {
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x20 => {
+                        Self::Add {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x21 => {
+                        Self::Addu {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x22 => {
+                        Self::Sub {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x23 => {
+                        Self::Subu {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x24 => {
+                        Self::And {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x25 => {
+                        Self::Or {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x26 => {
+                        Self::Xor {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x27 => {
+                        Self::Nor {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x2A => {
+                        Self::Slt {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+                    0x2B => {
+                        Self::Sltu {
+                            rd: instruction.rd(),
+                            rs: instruction.rs(),
+                            rt: instruction.rt(),
+                        }
+                    }
+
+                    _ => {
+                        Self::Invalid {
+                            opcode: instruction.0,
+                        }
+                    }
                 }
             }
 
