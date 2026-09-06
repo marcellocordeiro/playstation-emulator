@@ -1,6 +1,6 @@
 use strum::Display;
 
-use crate::components::cpu::instruction::{Instruction, RegisterIndex};
+use crate::components::cpu::{register_index::RegisterIndex, instruction::Instruction};
 
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
 pub enum DecodedInstruction {

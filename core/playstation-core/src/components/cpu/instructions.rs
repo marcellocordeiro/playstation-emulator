@@ -1,11 +1,7 @@
 use tracing::{debug, info};
 
 use crate::components::{
-    cpu::{
-        Cpu,
-        instruction::{Instruction, RegisterIndex},
-    },
-    memory::MemoryInterface,
+    cpu::{Cpu, register_index::RegisterIndex, instruction::Instruction}, memory::MemoryInterface,
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

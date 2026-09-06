@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::path::PathBuf;
+use std::ffi::OsStr;
 
 use cli::parse_args;
 use playstation_core::{PlayStation, constants::BIOS_SIZE};
@@ -13,10 +13,8 @@ fn main() {
 
     let args = parse_args();
 
-    let bios_path = args.bios;
-
-    let bios = bios_path
-        .map(PathBuf::from)
+    let bios = args
+        .bios
         .map(|path| {
             let data = std::fs::read(&path).unwrap();
             let data: Box<[u8; BIOS_SIZE]> =
@@ -26,10 +24,16 @@ fn main() {
         })
         .unwrap();
 
+    let mut rom = args
+        .rom
+        // Only support exes like amidog tests for now
+        .inspect(|path| assert_eq!(path.extension(), Some(OsStr::new("exe"))))
+        .map(|path| std::fs::read(&path).unwrap());
+
     let mut ps = PlayStation::new(bios);
 
-    if args.run_amidogs {
-        ps.cpu.sideload_amidogs();
+    if let Some(rom) = rom.take() {
+        ps.cpu.sideload_exe(&rom);
     }
 
     // let initial_pc = ps.cpu.regs.pc;

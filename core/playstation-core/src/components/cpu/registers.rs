@@ -1,4 +1,4 @@
-use crate::components::cpu::{cop0::Cop0, instruction::RegisterIndex};
+use crate::components::cpu::{cop0::Cop0, register_index::RegisterIndex};
 
 /// | Name    | Alias  | Common Usage                                            |
 /// | ------- | ------ | ------------------------------------------------------- |

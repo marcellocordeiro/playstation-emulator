@@ -63,9 +63,10 @@ impl MemoryInterface for Memory {
     }
 
     fn load<T: Addressable>(&self, address: u32) -> T {
-        if address % (T::width() as u32) != 0 {
-            panic!("Unaligned access not supported");
-        }
+        assert!(
+            (address % (T::width() as u32)) == 0,
+            "Unaligned access not supported"
+        );
 
         let Some(map) = mapped_to(address) else {
             panic!(
@@ -108,14 +109,30 @@ impl MemoryInterface for Memory {
             Map::Timers(_) => T::stubbed(),
             Map::Dma(_) => T::from_u32(0),
             Map::Scratchpad(offset) => self.scratchpad.load(offset),
-            Map::Gpu(_) => T::stubbed(),
+            Map::Gpu(offset) => {
+                match offset {
+                    4 => {
+                        let running_amidog_tests = std::env::var("AMIDOG_TEST")
+                            .map(|_| true)
+                            .unwrap_or_default();
+
+                        if running_amidog_tests {
+                            T::stubbed()
+                        } else {
+                            T::from_u32(0x1000_0000)
+                        }
+                    }
+                    _ => T::stubbed(),
+                }
+            }
         }
     }
 
     fn store<T: Addressable>(&mut self, address: u32, value: T) {
-        if address % (T::width() as u32) != 0 {
-            panic!("Unaligned access not supported");
-        }
+        assert!(
+            (address % (T::width() as u32)) == 0,
+            "Unaligned access not supported"
+        );
 
         let Some(map) = mapped_to(address) else {
             panic!(

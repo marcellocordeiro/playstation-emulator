@@ -2,7 +2,7 @@ use sst_r3000::{BranchDelay, Delay, LoadDelay, State};
 
 use crate::components::cpu::{
     cop0::{CauseRegister, Cop0, StatusRegister},
-    instruction::RegisterIndex,
+    register_index::RegisterIndex,
     registers::Registers,
 };
 

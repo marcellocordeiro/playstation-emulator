@@ -99,15 +99,13 @@ impl<Mem: MemoryInterface> Cpu<Mem> {
         }
     }
 
-    pub fn sideload_amidogs(&mut self) {
-        let exe = include_bytes!("../../../../roms/psxtest_cpu.exe");
-
+    pub fn sideload_exe(&mut self, bytes: &[u8]) {
         // Wait for the BIOS to jump to the shell
         while self.regs.pc != 0x8003_0000 {
             self.run_next_instruction();
         }
 
-        PsxExecutable::apply(exe, &mut self.regs, self.memory.ram_mut());
+        PsxExecutable::apply(bytes, &mut self.regs, self.memory.ram_mut());
 
         std::thread::sleep(time::Duration::from_secs(1));
     }
@@ -117,6 +115,7 @@ mod cop0;
 pub mod decoded_instruction;
 pub mod instruction;
 mod instructions;
+pub mod register_index;
 pub mod registers;
 
 #[cfg(test)]

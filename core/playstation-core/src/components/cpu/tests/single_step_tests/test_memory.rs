@@ -20,17 +20,19 @@ impl MemoryInterface for TestMemory {
     }
 
     fn load<T: Addressable>(&self, address: u32) -> T {
-        if address % (T::width() as u32) != 0 {
-            panic!("Unaligned access not supported");
-        }
+        assert!(
+            (address % (T::width() as u32)) == 0,
+            "Unaligned access not supported"
+        );
 
         self.ram.load(address)
     }
 
     fn store<T: Addressable>(&mut self, address: u32, value: T) {
-        if address % (T::width() as u32) != 0 {
-            panic!("Unaligned access not supported");
-        }
+        assert!(
+            (address % (T::width() as u32)) == 0,
+            "Unaligned access not supported"
+        );
 
         self.ram.store(address, value);
     }

@@ -1,57 +1,10 @@
-use std::fmt::Display;
-
-use crate::components::cpu::decoded_instruction::DecodedInstruction;
+use crate::components::cpu::{
+    decoded_instruction::DecodedInstruction,
+    register_index::RegisterIndex,
+};
 
 #[derive(Clone, Copy)]
 pub struct Instruction(pub u32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RegisterIndex(pub u32);
-
-impl Display for RegisterIndex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self.0 {
-            0 => "zero",
-            1 => "at",
-            2 => "v0",
-            3 => "v1",
-            4 => "a0",
-            5 => "a1",
-            6 => "a2",
-            7 => "a3",
-            8 => "t0",
-            9 => "t1",
-            10 => "t2",
-            11 => "t3",
-            12 => "t4",
-            13 => "t5",
-            14 => "t6",
-            15 => "t7",
-            16 => "s0",
-            17 => "s1",
-            18 => "s2",
-            19 => "s3",
-            20 => "s4",
-            21 => "s5",
-            22 => "s6",
-            23 => "s7",
-            24 => "t8",
-            25 => "t9",
-            26 => "k0",
-            27 => "k1",
-            28 => "gp",
-            29 => "sp",
-            30 => "fp",
-            31 => "ra",
-
-            invalid => {
-                return write!(f, "r{invalid}");
-            }
-        };
-
-        f.write_str(str)
-    }
-}
 
 impl Instruction {
     /// Primary opcode field, or operation code (op)
@@ -142,7 +95,7 @@ impl Instruction {
 }
 
 impl std::fmt::Debug for Instruction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "Instruction {:#010X}, primary opcode = {:#04X}, secondary opcode = {:#04X}",
             self.0,
@@ -153,7 +106,7 @@ impl std::fmt::Debug for Instruction {
 }
 
 impl std::fmt::Display for Instruction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }

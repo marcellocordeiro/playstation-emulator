@@ -40,7 +40,7 @@ run *ARGS:
 # Run the headless app
 [group("development")]
 run-amidogs:
-  cargo run -p playstation-headless -- --bios roms/bios/scph1001.bin --run-amidogs
+  AMIDOG_TEST=1 cargo run -p playstation-headless -- --bios roms/bios/scph1001.bin roms/psxtest_cpu.exe
 
 # Run tests for all crates in the workspace
 [group("development")]
